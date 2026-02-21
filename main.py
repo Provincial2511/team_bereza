@@ -59,7 +59,12 @@ def main() -> None:
     timestamp_start = datetime.now().isoformat()
     pipeline_start_time = time()
     stage_durations: Dict[str, float] = {}
-    
+
+    # Generation mode: "doctor" or "patient"
+    mode = "doctor"
+    if mode not in ("doctor", "patient"):
+        raise ValueError("mode must be 'doctor' or 'patient'")
+
     # FAISS index storage path (configurable)
     faiss_index_path = "data/faiss_index"
     guideline_pdf_path = "data/clinical_guideline/cg_30_5_lung_cancer.pdf"
@@ -211,7 +216,8 @@ def main() -> None:
     final_response = generator.generate(
         patient_text=patient_text,
         retrieved_sections=retrieved_sections,
-        max_new_tokens=2048,
+        mode=mode,
+        max_new_tokens=1024,
     )
     stage_durations["generation"] = time() - generation_start
     print("Final recommendation generated successfully.\n")
@@ -241,6 +247,7 @@ def main() -> None:
     # Prepare metadata dictionary
     response_metadata = {
         "version": next_version,
+        "mode": mode,
         "timestamp_start": timestamp_start,
         "timestamp_end": timestamp_end,
         "total_duration_seconds": round(total_duration_seconds, 3),
