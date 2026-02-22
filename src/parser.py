@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Dict, List
 
-from transformers import AutoModelForCausalLM, AutoTokenizer
-
 import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 class GuidelineParser:
@@ -14,6 +14,9 @@ class GuidelineParser:
 
     The model is expected to return strictly valid JSON containing
     the requested guideline sections.
+
+    Note: This class is implemented but not used in the current main pipeline.
+    The production flow uses GuidelineParserStub instead.
     """
 
     def __init__(
@@ -44,14 +47,13 @@ class GuidelineParser:
         Parse raw OCR text into structured guideline sections.
 
         The model is prompted to return JSON with the following keys:
-        - Diagnosis
-        - Short information
-        - Diagnostics
-        - Treatment
-        - Rehabilitation
-        - Prevention
-        - Organization of care
-        - Prognosis factors
+        - Краткая информация
+        - Диагностика
+        - Лечение
+        - Реабилитация
+        - Профилактика
+        - Организация ухода
+        - Факторы прогноза
 
         Args:
             text: Raw OCR text of the clinical guideline.
@@ -96,10 +98,9 @@ class GuidelineParser:
             skip_special_tokens=True,
         ).strip()
 
-        # Attempt to parse JSON; raise a clear error if this fails.
         try:
             data: Dict[str, str] = json.loads(generated)
-        except json.JSONDecodeError as exc:  # noqa: PERF203
+        except json.JSONDecodeError as exc:
             raise RuntimeError(
                 f"Failed to parse JSON from model output: {generated}"
             ) from exc
@@ -109,10 +110,20 @@ class GuidelineParser:
 
 class GuidelineParserStub:
     """
-    Temporary stub parser for clinical guidelines.
+    Semantic chunker for clinical guideline text.
 
-    Splits the text into overlapping chunks by token count.
-    Does not try to extract structured JSON.
+    Strategy:
+    1. Split the text on paragraph breaks (two or more consecutive newlines).
+    2. Group small paragraphs together into chunks of up to ``chunk_size`` tokens,
+       accumulating text until adding the next paragraph would exceed the limit.
+    3. Sub-divide paragraphs that individually exceed ``chunk_size`` using
+       overlapping token windows (identical to the previous token-sliding approach).
+
+    This preserves meaningful text units (paragraphs) wherever possible and
+    falls back to raw token slicing only for oversized blocks.
+
+    The tokenizer is used only for token counting and decoding; no model
+    inference is performed.
     """
 
     def __init__(
@@ -123,9 +134,9 @@ class GuidelineParserStub:
     ) -> None:
         """
         Args:
-            chunk_size: Number of tokens per chunk.
-            overlap: Number of tokens to overlap between consecutive chunks.
-            model_name: Model name for tokenizer (can be lightweight).
+            chunk_size: Maximum number of tokens per output chunk.
+            overlap: Number of tokens to overlap when sub-dividing oversized blocks.
+            model_name: HuggingFace model name used to load the tokenizer.
         """
         self.chunk_size = chunk_size
         self.overlap = overlap
@@ -133,29 +144,69 @@ class GuidelineParserStub:
 
     def parse(self, text: str) -> List[str]:
         """
-        Split text into overlapping chunks.
+        Split guideline text into semantically coherent chunks.
 
         Args:
-            text: Raw clinical guideline text.
+            text: Raw guideline text (may contain ``\\n\\n`` paragraph breaks).
 
         Returns:
-            List of text chunks (strings).
+            List of non-empty text chunk strings.
         """
-        # Encode text into tokens
+        paragraphs = self._split_paragraphs(text)
+        chunks: List[str] = []
+
+        current_parts: List[str] = []
+        current_tokens: int = 0
+
+        for para in paragraphs:
+            para_tokens = len(self.tokenizer.encode(para, add_special_tokens=False))
+
+            if para_tokens > self.chunk_size:
+                # Flush the current accumulation before handling the large block.
+                if current_parts:
+                    chunks.append("\n\n".join(current_parts))
+                    current_parts = []
+                    current_tokens = 0
+                chunks.extend(self._token_chunks(para))
+
+            elif current_tokens + para_tokens > self.chunk_size:
+                # Current accumulation is full — flush and start a new group.
+                chunks.append("\n\n".join(current_parts))
+                current_parts = [para]
+                current_tokens = para_tokens
+
+            else:
+                current_parts.append(para)
+                current_tokens += para_tokens
+
+        if current_parts:
+            chunks.append("\n\n".join(current_parts))
+
+        return [c for c in chunks if c.strip()]
+
+    @staticmethod
+    def _split_paragraphs(text: str) -> List[str]:
+        """Split text on two or more consecutive newlines."""
+        parts = re.split(r"\n{2,}", text)
+        return [p.strip() for p in parts if p.strip()]
+
+    def _token_chunks(self, text: str) -> List[str]:
+        """
+        Split a single block into overlapping token windows.
+
+        Used as a fallback for paragraphs that individually exceed chunk_size.
+        """
         tokens = self.tokenizer.encode(text, add_special_tokens=False)
+        stride = max(1, self.chunk_size - self.overlap)
         chunks: List[str] = []
 
         start = 0
         while start < len(tokens):
             end = min(start + self.chunk_size, len(tokens))
-            chunk_tokens = tokens[start:end]
-            chunk_text = self.tokenizer.decode(chunk_tokens, skip_special_tokens=True)
+            chunk_text = self.tokenizer.decode(
+                tokens[start:end], skip_special_tokens=True
+            )
             chunks.append(chunk_text)
-
-            # Move start pointer with overlap
-            start += self.chunk_size - self.overlap
-            if start < 0:
-                start = 0
+            start += stride
 
         return chunks
-
