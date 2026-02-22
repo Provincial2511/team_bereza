@@ -1,9 +1,11 @@
-pdf2image
-pytesseract
+easyocr
+PyMuPDF
 faiss-cpu
 sentence-transformers
 transformers
-torch==2.5.1+cu121
+torch==2.5.0
+torchvision==0.20.0
+torchaudio==2.5.0
 python-docx
-Pillow==11.0.0
+Pillow
 numpy==2.1.2
