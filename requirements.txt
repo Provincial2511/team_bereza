@@ -9,3 +9,6 @@ torchaudio==2.5.0
 python-docx
 Pillow
 numpy==2.1.2
+fastapi
+uvicorn[standard]
+python-multipart

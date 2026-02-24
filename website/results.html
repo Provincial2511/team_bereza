@@ -480,6 +480,177 @@
       line-height: 1.6;
     }
     
+    /* === AI RESPONSE CARD === */
+    .ai-response-card {
+      background: var(--paper);
+      border-radius: 20px;
+      padding: 28px 32px;
+      box-shadow: var(--shadow);
+      margin-bottom: 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .ai-response-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .ai-response-text {
+      font-size: 15px;
+      line-height: 1.75;
+      color: var(--text);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .ai-response-loading {
+      color: var(--text-sec);
+      font-size: 15px;
+      padding: 16px 0;
+    }
+
+    /* === ЧАТ-ПАНЕЛЬ === */
+    .chat-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      z-index: 1100;
+    }
+
+    .chat-overlay.open { display: block; }
+
+    .chat-panel {
+      position: fixed;
+      top: 0;
+      right: -420px;
+      width: 420px;
+      max-width: 100vw;
+      height: 100vh;
+      background: var(--paper);
+      box-shadow: -8px 0 32px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+      z-index: 1200;
+      transition: right 0.3s ease;
+    }
+
+    .chat-panel.open { right: 0; }
+
+    .chat-panel-header {
+      padding: 18px 20px;
+      background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .chat-panel-header span {
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .chat-close-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 22px;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 4px;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .chat-msg {
+      max-width: 88%;
+      padding: 10px 14px;
+      border-radius: 16px;
+      font-size: 14px;
+      line-height: 1.6;
+      word-break: break-word;
+      white-space: pre-wrap;
+    }
+
+    .chat-msg.user {
+      align-self: flex-end;
+      background: linear-gradient(135deg, #1565C0, #42A5F5);
+      color: white;
+      border-bottom-right-radius: 4px;
+    }
+
+    .chat-msg.assistant {
+      align-self: flex-start;
+      background: #F3E5F5;
+      color: var(--text);
+      border-bottom-left-radius: 4px;
+    }
+
+    .chat-msg.typing {
+      align-self: flex-start;
+      background: #F3E5F5;
+      color: var(--text-sec);
+      font-style: italic;
+    }
+
+    .chat-input-row {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .chat-input-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 24px;
+      font-size: 14px;
+      font-family: 'Roboto', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .chat-input-row input:focus { border-color: #9C27B0; }
+
+    .chat-send-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #9C27B0, #7B1FA2);
+      color: white;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: opacity 0.2s;
+    }
+
+    .chat-send-btn:disabled { opacity: 0.5; cursor: default; }
+
+    @media (max-width: 480px) {
+      .chat-panel { width: 100vw; }
+    }
+
     /* === КНОПКА ЧАТА С LLM === */
     .llm-chat-fab {
       position: fixed;
@@ -665,6 +836,13 @@
       </div>
     </div>
     
+    <!-- AI Response Card -->
+    <div class="ai-response-card" id="aiResponseCard">
+      <h3>🤖 Анализ AI</h3>
+      <div class="ai-response-loading" id="aiResponseLoading">Загрузка результатов анализа...</div>
+      <div class="ai-response-text" id="aiResponseText" style="display:none;"></div>
+    </div>
+
     <!-- Diagnostics Section — С УПРОЩЁННЫМИ ОБЪЯСНЕНИЯМИ ДЛЯ ПАЦИЕНТА -->
     <div class="section">
       <div class="section-header" onclick="toggleSection('diagnostics')">
@@ -853,52 +1031,119 @@
     ← Назад
   </div>
   
+  <!-- Chat overlay -->
+  <div class="chat-overlay" id="chatOverlay" onclick="closeChatPanel()"></div>
+
+  <!-- Chat panel -->
+  <div class="chat-panel" id="chatPanel">
+    <div class="chat-panel-header">
+      <span>💬 AI-помощник</span>
+      <button class="chat-close-btn" onclick="closeChatPanel()">✕</button>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-input-row">
+      <input
+        type="text"
+        id="chatInput"
+        placeholder="Задайте вопрос по результатам..."
+        onkeydown="if(event.key==='Enter') sendChatMessage()"
+      />
+      <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">➤</button>
+    </div>
+  </div>
+
   <!-- LLM Chat Button -->
-  <button class="llm-chat-fab" onclick="openLLMChat()" title="Задать вопрос AI">
+  <button class="llm-chat-fab" onclick="openChatPanel()" title="Задать вопрос AI">
     💬
     <span class="tooltip">Задать вопрос по результатам</span>
   </button>
 
   <script>
-    // Toggle Sections
+    // --- Accordion ---
     function toggleSection(sectionId) {
       const content = document.getElementById(sectionId);
-      const arrow = document.getElementById(sectionId + 'Arrow');
-      
-      if (content.style.display === 'none' || content.style.display === '') {
-        content.style.display = 'block';
-        arrow.textContent = '▼';
-      } else {
-        content.style.display = 'none';
-        arrow.textContent = '▶';
-      }
+      const arrow   = document.getElementById(sectionId + 'Arrow');
+      const open    = content.style.display === 'block';
+      content.style.display = open ? 'none' : 'block';
+      arrow.textContent     = open ? '▶' : '▼';
     }
-    
-    // Export Report
+
     function exportReport() {
       alert('📤 Генерация PDF-отчёта...\n\nВ полной версии здесь будет скачивание документа.');
     }
-    
-    // Open LLM Chat Modal
-    function openLLMChat() {
-      const patientId = document.getElementById('patientId').textContent;
-      const message = `🤖 AI-помощник\n\nЗдравствуйте! Я готов ответить на вопросы по результатам проверки пациента ${patientId}.\n\nВы можете спросить:\n• "Почему рекомендован T-DXd?"\n• "Какие есть альтернативы при недоступности препарата?"\n• "Объясни молекулярный профиль простыми словами"\n\nНапишите ваш вопрос:`;
-      
-      const userQuestion = prompt(message);
-      
-      if (userQuestion && userQuestion.trim()) {
-        setTimeout(() => {
-          alert(`💬 Ответ AI:\n\nСпасибо за вопрос: "${userQuestion}"\n\n[В полной версии здесь будет развёрнутый ответ от языковой модели с ссылками на клинические рекомендации и объяснением на понятном языке.]`);
-        }, 500);
+
+    // --- Chat panel ---
+    function openChatPanel() {
+      document.getElementById('chatPanel').classList.add('open');
+      document.getElementById('chatOverlay').classList.add('open');
+      document.getElementById('chatInput').focus();
+    }
+
+    function closeChatPanel() {
+      document.getElementById('chatPanel').classList.remove('open');
+      document.getElementById('chatOverlay').classList.remove('open');
+    }
+
+    function appendMessage(role, text) {
+      const box = document.getElementById('chatMessages');
+      const div = document.createElement('div');
+      div.className = 'chat-msg ' + role;
+      div.textContent = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      return div;
+    }
+
+    async function sendChatMessage() {
+      const input   = document.getElementById('chatInput');
+      const sendBtn = document.getElementById('chatSendBtn');
+      const text    = input.value.trim();
+      if (!text) return;
+
+      const sessionId = localStorage.getItem('oncoai_session_id');
+      if (!sessionId) {
+        appendMessage('assistant', 'Сессия не найдена. Пожалуйста, загрузите файл пациента снова.');
+        return;
+      }
+
+      appendMessage('user', text);
+      input.value   = '';
+      input.disabled = true;
+      sendBtn.disabled = true;
+
+      const typingDiv = appendMessage('typing', '...');
+
+      try {
+        const res = await fetch('/api/chat', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ session_id: sessionId, message: text }),
+        });
+
+        typingDiv.remove();
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: res.statusText }));
+          appendMessage('assistant', '⚠️ ' + (err.detail || 'Ошибка сервера'));
+        } else {
+          const data = await res.json();
+          appendMessage('assistant', data.reply);
+        }
+      } catch (err) {
+        typingDiv.remove();
+        appendMessage('assistant', '⚠️ Не удалось связаться с сервером: ' + err.message);
+      } finally {
+        input.disabled  = false;
+        sendBtn.disabled = false;
+        input.focus();
       }
     }
-    
-    // Load data and set mode
+
+    // --- Init ---
     window.addEventListener('DOMContentLoaded', () => {
-      const mode = localStorage.getItem('oncoai_mode') || 'doctor';
+      const mode      = localStorage.getItem('oncoai_mode') || 'doctor';
       const modeBadge = document.getElementById('modeBadge');
-      
-      // === УСТАНОВКА КЛАССА НА BODY ДЛЯ РЕЖИМА ===
+
       if (mode === 'patient') {
         document.body.classList.add('patient-mode');
         modeBadge.textContent = 'Режим пациента';
@@ -908,14 +1153,33 @@
         modeBadge.textContent = 'Режим врача';
         modeBadge.style.background = 'linear-gradient(135deg, #1565C0, #42A5F5)';
       }
-      
-      // Animate progress bar
+
+      // Показать AI-ответ из localStorage
+      const response = localStorage.getItem('oncoai_response');
+      const loading  = document.getElementById('aiResponseLoading');
+      const textEl   = document.getElementById('aiResponseText');
+
+      if (response) {
+        loading.style.display = 'none';
+        textEl.textContent    = response;
+        textEl.style.display  = 'block';
+      } else {
+        loading.textContent = 'Результаты анализа не найдены. Загрузите файл пациента.';
+      }
+
+      // Приветственное сообщение в чате
+      appendMessage('assistant',
+        'Здравствуйте! Я проанализировал данные пациента. ' +
+        'Вы можете задать уточняющие вопросы по результатам анализа.'
+      );
+
+      // Анимация progress bar (mock-данные)
       setTimeout(() => {
         const progress = document.getElementById('overallProgress');
-        progress.style.width = '0%';
-        setTimeout(() => {
-          progress.style.width = '82%';
-        }, 100);
+        if (progress) {
+          progress.style.width = '0%';
+          setTimeout(() => { progress.style.width = '82%'; }, 100);
+        }
       }, 500);
     });
   </script>

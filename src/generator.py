@@ -206,6 +206,69 @@ class LocalGenerator:
         generated = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
         return self._ensure_disclaimer(generated)
 
+    def answer(
+        self,
+        question: str,
+        patient_text: str,
+        retrieved_sections: list[str],
+        mode: str,
+        max_new_tokens: int = 512,
+    ) -> str:
+        """
+        Answer a follow-up question using the context from a previous analysis.
+
+        Uses the same system prompt and retrieved sections as the main analysis,
+        but appends the user's specific question to the user message.
+
+        Args:
+            question: The follow-up question from the user.
+            patient_text: Original patient record text.
+            retrieved_sections: Guideline sections retrieved during analysis.
+            mode: ``"doctor"`` or ``"patient"``.
+            max_new_tokens: Maximum number of new tokens to generate.
+
+        Returns:
+            Answer text with disclaimer guaranteed.
+        """
+        system_prompt = self._get_system_prompt(mode)
+        retrieved_context = "\n\n".join(retrieved_sections)
+
+        user_message = (
+            f"=== Клинические рекомендации ===\n{retrieved_context}\n\n"
+            f"=== Данные пациента ===\n{patient_text}\n\n"
+            f"=== Вопрос ===\n{question}"
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        inputs = self.tokenizer(
+            text,
+            return_tensors="pt",
+            truncation=True,
+        ).to(self.device)
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                pad_token_id=self.tokenizer.pad_token_id,
+            )
+
+        input_length = inputs["input_ids"].shape[1]
+        new_tokens = output_ids[0][input_length:]
+        generated = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+        return self._ensure_disclaimer(generated)
+
     def _ensure_disclaimer(self, text: str) -> str:
         """
         Append the mandatory disclaimer if the model omitted it.

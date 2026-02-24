@@ -52,25 +52,53 @@ function removeFile(index) {
   renderFileList();
 }
 
-function startVerification() {
+async function startVerification() {
   if (AppState.uploadedFiles.length === 0) return;
-  
+
   const verifyBtn = document.getElementById('verifyBtn');
+  const errorBox  = document.getElementById('uploadError');
+
   if (verifyBtn) {
     verifyBtn.disabled = true;
     verifyBtn.textContent = '⏳ Анализ...';
   }
-  
-  // Simulate API call
-  setTimeout(() => {
+  if (errorBox) errorBox.style.display = 'none';
+
+  const mode = localStorage.getItem('oncoai_mode') || 'doctor';
+  const formData = new FormData();
+  formData.append('file', AppState.uploadedFiles[0]);
+  formData.append('mode', mode);
+
+  try {
+    const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || 'Ошибка сервера');
+    }
+
+    const data = await res.json();
+    localStorage.setItem('oncoai_session_id', data.session_id);
+    localStorage.setItem('oncoai_response',   data.response);
     localStorage.setItem('oncoai_case_data', JSON.stringify({
-      patientId: 'ONC-2026-0847',
       files: AppState.uploadedFiles.map(f => f.name),
       timestamp: new Date().toISOString()
     }));
-    
+
     window.location.href = 'results.html';
-  }, 2000);
+
+  } catch (err) {
+    if (verifyBtn) {
+      verifyBtn.disabled = false;
+      verifyBtn.textContent = '🔍 Проверить соответствие рекомендациям';
+    }
+    if (errorBox) {
+      errorBox.textContent = '⚠️ ' + err.message;
+      errorBox.style.display = 'block';
+    } else {
+      alert('Ошибка: ' + err.message);
+    }
+  }
 }
 
 // Setup drag and drop
