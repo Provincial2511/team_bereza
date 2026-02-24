@@ -229,6 +229,7 @@ def main() -> None:
         "total_duration_seconds": round(total_duration, 3),
         "model_name": cfg.generator_model,
         "stage_durations": {k: round(v, 3) for k, v in stage_durations.items()},
+        "retrieved_sections": retrieved_sections,
         "final_response": final_response,
     }
 

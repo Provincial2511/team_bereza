@@ -16,6 +16,11 @@ class LocalGenerator:
     - Returns only the newly generated tokens (no prompt stripping required).
     """
 
+    _DISCLAIMER = (
+        "\n\nНе является медицинской рекомендацией! "
+        "Материал создан нейросетью. Используйте в ознакомительных целях."
+    )
+
     _SYSTEM_PROMPTS: dict[str, str] = {
         "doctor": (
             "Ты — врач-онколог с 10-летним опытом работы в ведущем онкологическом центре.\n\n"
@@ -198,4 +203,16 @@ class LocalGenerator:
         # Decode only the newly generated tokens.
         input_length = inputs["input_ids"].shape[1]
         new_tokens = output_ids[0][input_length:]
-        return self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+        generated = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+        return self._ensure_disclaimer(generated)
+
+    def _ensure_disclaimer(self, text: str) -> str:
+        """
+        Append the mandatory disclaimer if the model omitted it.
+
+        The disclaimer is required by the system prompt, but may be truncated
+        when max_new_tokens is reached before the model finishes generating.
+        """
+        if "Не является медицинской рекомендацией" not in text:
+            return text + self._DISCLAIMER
+        return text
