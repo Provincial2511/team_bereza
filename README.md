@@ -8,16 +8,26 @@
 ## Архитектура
 
 ```
+Браузер
+    → upload.html  (загрузить DOCX пациента + выбрать режим)
+    → POST /api/analyze
+              │
+              ▼
+         FastAPI [api/main.py]
+              │  AppState: embedder + FAISS + Qwen загружены ОДИН РАЗ
+              ├─ embed patient text → FAISS search → top-5 чанков
+              └─ LocalGenerator.generate() → ответ
+              │
+              ▼
+    ← session_id + response → results.html
+    → POST /api/chat  (follow-up вопросы через чат-панель)
+
+RAG-пайплайн (первый запуск / пересборка индекса):
 PDF (клинические рекомендации)
     → OCR / native extract   [src/ocr.py]
     → Semantic chunker        [src/parser.py]
     → TextEmbedder            [src/embeddings.py]
     → FaissStore (кэш)        [src/faiss_store.py]
-                  ↕ top-k retrieval
-DOCX (данные пациента)
-    → TextEmbedder
-    → LocalGenerator          [src/generator.py]
-    → version_N.json          [data/generator_response/]
 ```
 
 Пайплайн полностью локальный — никаких внешних API.
@@ -36,6 +46,17 @@ pip install -r requirements.txt
 
 ## Запуск
 
+### Веб-приложение (основной способ)
+
+```bash
+uvicorn api.main:app --host 0.0.0.0 --port 8000
+```
+
+Открыть `http://localhost:8000` — сайт и API поднимаются вместе.
+При первом старте модели и FAISS-индекс загружаются один раз; все последующие запросы используют уже загруженные объекты.
+
+### Только пайплайн (без сайта)
+
 ```bash
 python main.py
 ```
@@ -53,9 +74,9 @@ cfg = Config(
 )
 ```
 
-При первом запуске пайплайн выполняет OCR, чанкинг и строит FAISS-индекс, сохраняя его в `data/faiss_index/`. При последующих запусках индекс загружается с диска — OCR и эмбеддинг гайдлайнов пропускаются.
+При первом запуске пайплайн выполняет OCR, чанкинг и строит FAISS-индекс (`data/faiss_index/`). При последующих запусках индекс загружается с диска.
 
-Чтобы пересобрать индекс (например, после добавления нового PDF):
+Чтобы пересобрать индекс (после добавления нового PDF):
 
 ```bash
 rm -rf data/faiss_index/
@@ -78,9 +99,13 @@ jupyter notebook tests.ipynb
 
 ```
 team_bereza/
-├── main.py                         # точка входа, линейный пайплайн
+├── main.py                         # CLI-запуск пайплайна без веба
 ├── tests.ipynb                     # тесты всех модулей
 ├── requirements.txt
+├── api/
+│   ├── main.py                     # FastAPI-приложение, эндпоинты + раздача website/
+│   ├── state.py                    # AppState: синглтон с моделью и индексом
+│   └── models.py                   # Pydantic-схемы запросов / ответов
 ├── src/
 │   ├── config.py                   # централизованная конфигурация
 │   ├── ocr.py                      # извлечение текста из PDF
@@ -88,6 +113,11 @@ team_bereza/
 │   ├── embeddings.py               # TextEmbedder (sentence-transformers)
 │   ├── faiss_store.py              # векторное хранилище
 │   └── generator.py                # LocalGenerator (Qwen2-7B-Instruct)
+├── website/
+│   ├── index2.html                 # лендинг: выбор режима doctor / patient
+│   ├── upload.html                 # загрузка DOCX пациента
+│   ├── results.html                # результаты анализа + чат-панель
+│   └── js/app.js                   # общая логика, API-клиент
 └── data/
     ├── clinical_guideline/         # PDF клинических рекомендаций
     ├── input_example/              # DOCX пациента
@@ -241,6 +271,7 @@ team_bereza/
 | v0.1   | 2026-02-20 | Минимальная работоспособная версия RAG |
 | v0.2   | 2026-02-21 | Добавлена логика режимов ответов: doctor / patient |
 | v0.3   | 2026-02-22 | Рефакторинг и улучшение всех модулей (см. ниже) |
+| v0.4   | 2026-02-24 | FastAPI-бэкенд + интеграция сайта с инференсом (см. ниже) |
 
 ---
 
@@ -315,3 +346,65 @@ Jupyter-ноутбук с изолированными тестами каждо
 | `Pillow==11.0.0` | `Pillow` (без пина) |
 | — | `easyocr` |
 | — | `PyMuPDF` |
+
+---
+
+## Изменения v0.4
+
+### `api/` — новая папка: FastAPI-приложение
+
+**Было:** сайт был статическим макетом; инференс запускался только через `python main.py`.
+**Стало:** полноценный REST API, объединяющий модель и сайт под одним сервером.
+
+**`api/state.py`** — синглтон `AppState`:
+- Загружает `TextEmbedder`, `FaissStore` и `LocalGenerator` один раз при старте сервера (FastAPI lifespan).
+- `create_session()` сохраняет `patient_text`, `retrieved_sections` и `mode` для follow-up чата.
+- `get_session()` возвращает данные сессии по UUID.
+
+**`api/models.py`** — Pydantic-схемы:
+- `AnalyzeResponse` — `session_id` + `response`.
+- `ChatRequest` — `session_id` + `message`.
+- `ChatResponse` — `reply`.
+
+**`api/main.py`** — FastAPI-приложение:
+- `POST /api/analyze` — принимает DOCX-файл и `mode` (form-data), запускает полный RAG-пайплайн, возвращает `AnalyzeResponse`.
+- `POST /api/chat` — принимает `ChatRequest`, вызывает `generator.answer()` с сохранённым контекстом сессии, возвращает `ChatResponse`.
+- Папка `website/` раздаётся как статические файлы: `GET /` открывает `index2.html`.
+
+---
+
+### `src/generator.py` — метод `answer()`
+
+Добавлен метод `answer(question, patient_text, retrieved_sections, mode)` для follow-up вопросов в чате:
+- Использует те же системный промпт и retrieved-контекст, что и основной `generate()`.
+- К user-сообщению добавляется блок `=== Вопрос ===` с вопросом пользователя.
+- Гарантирует наличие дисклеймера через `_ensure_disclaimer()`.
+
+---
+
+### `website/js/app.js` — реальные API-вызовы
+
+**Было:** `startVerification()` делала `setTimeout` с захардкоженным ответом, чат открывался через `prompt()`.
+**Стало:**
+- `startVerification()` отправляет `FormData` на `POST /api/analyze`, сохраняет `session_id` и `response` в `localStorage`, перенаправляет на `results.html`.
+- Обработка ошибок: блок `uploadError` показывает сообщение об ошибке без `alert()`.
+
+---
+
+### `website/results.html` — карточка ответа и чат-панель
+
+**Было:** статичная страница-заглушка с кнопкой FAB, открывавшей `prompt()`.
+**Стало:**
+- **Карточка ответа** — загружает `oncoai_response` из `localStorage` и отображает текст рекомендации.
+- **Чат-панель** — выезжает справа по нажатию FAB; поддерживает историю сообщений, поле ввода и кнопку отправки.
+- `sendChatMessage()` отправляет `POST /api/chat` с `session_id` из `localStorage`, добавляет ответ модели в историю чата.
+
+---
+
+### `requirements.txt` — новые зависимости v0.4
+
+| — | Добавлено |
+|---|-----------|
+| — | `fastapi` |
+| — | `uvicorn[standard]` |
+| — | `python-multipart` |
