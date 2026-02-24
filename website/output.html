@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OncoAI Assistant — Результаты проверки</title>
+  <style>
+    :root {
+      --success: #2E7D32;
+      --warning: #ED6C02;
+      --error: #C62828;
+      --info: #1565C0;
+      --bg: #FAFBFC;
+      --paper: #FFFFFF;
+      --text: #1A1A1A;
+      --text-sec: #666666;
+      --border: #E0E0E0;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; }
+    
+    .header { background: var(--paper); padding: 16px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+    .logo { font-size: 20px; font-weight: 700; color: var(--info); display: flex; align-items: center; gap: 8px; }
+    .user-menu { display: flex; align-items: center; gap: 16px; }
+    .user-info { text-align: right; }
+    .user-name { font-weight: 600; font-size: 14px; }
+    .user-role { font-size: 12px; color: var(--text-sec); }
+    .user-avatar { width: 40px; height: 40px; border-radius: 50%; background: var(--info); color: white; display: flex; align-items: center; justify-content: center; font-weight: 600; }
+    
+    .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+    
+    .patient-summary { background: var(--paper); border-radius: 12px; padding: 20px; margin-bottom: 24px; border-left: 4px solid var(--info); }
+    .patient-id { font-family: monospace; background: #F5F5F5; padding: 4px 8px; border-radius: 4px; font-size: 13px; }
+    
+    .compliance-card { background: var(--paper); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+    .compliance-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .compliance-title { font-size: 18px; font-weight: 600; }
+    
+    .progress-bar { height: 24px; background: #E0E0E0; border-radius: 12px; overflow: hidden; margin: 16px 0; }
+    .progress-fill { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 14px; }
+    .progress-success { background: linear-gradient(90deg, var(--success), #4CAF50); }
+    .progress-warning { background: linear-gradient(90deg, var(--warning), #FF9800); }
+    .progress-error { background: linear-gradient(90deg, var(--error), #EF5350); }
+    
+    .stats { display: flex; gap: 24px; margin: 16px 0; flex-wrap: wrap; }
+    .stat { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .stat.success { color: var(--success); }
+    .stat.warning { color: var(--warning); }
+    .stat.error { color: var(--error); }
+    
+    .section { background: var(--paper); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+    .section-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-weight: 600; padding-bottom: 12px; border-bottom: 1px solid #F0F0F0; }
+    .section-content { padding-top: 16px; }
+    
+    .item { padding: 16px 0; border-bottom: 1px solid #F5F5F5; display: flex; gap: 16px; }
+    .item:last-child { border-bottom: none; }
+    .item-icon { font-size: 20px; flex-shrink: 0; }
+    .item-content { flex: 1; }
+    .item-title { font-weight: 500; margin-bottom: 4px; }
+    .item-desc { font-size: 14px; color: var(--text-sec); margin-bottom: 8px; }
+    
+    .badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 500; display: inline-block; }
+    .badge.success { background: #E8F5E9; color: var(--success); }
+    .badge.warning { background: #FFF3E0; color: var(--warning); }
+    .badge.error { background: #FFEBEE; color: var(--error); }
+    .badge.info { background: #E3F2FD; color: var(--info); }
+    
+    .guideline-link { font-size: 12px; color: var(--info); text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; }
+    .guideline-link:hover { text-decoration: underline; }
+    
+    .actions { display: flex; gap: 12px; margin-top: 16px; flex-wrap: wrap; }
+    .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; transition: 0.2s; }
+    .btn-primary { background: var(--info); color: white; }
+    .btn-primary:hover { background: #0D47A1; }
+    .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-outline:hover { background: #F5F5F5; }
+    .btn-success { background: var(--success); color: white; }
+    .btn-success:hover { background: #1B5E20; }
+    
+    .disclaimer { background: #FFF3E0; border-left: 4px solid var(--warning); padding: 16px; margin-top: 40px; border-radius: 8px; font-size: 13px; color: var(--text-sec); }
+    .disclaimer strong { color: var(--text); }
+    
+    .mode-indicator { position: fixed; bottom: 24px; right: 24px; background: var(--paper); padding: 12px 20px; border-radius: 50px; cursor: pointer; font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15); display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); z-index: 1000; }
+    
+    body.patient-mode .header { background: #E8F5E9; }
+    body.patient-mode .logo { color: var(--success); }
+    body.patient-mode .btn-primary { background: var(--success); }
+    body.patient-mode .mode-indicator { background: #E8F5E9; border-color: var(--success); }
+    
+    .hidden { display: none !important; }
+    
+    /* Patient-friendly styles */
+    body.patient-mode .item-desc { font-size: 15px; }
+    body.patient-mode .guideline-link::before { content: '📖 '; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">🏥 OncoAI Assistant</div>
+    <div class="user-menu">
+      <div class="user-info">
+        <div class="user-name">Доктор Иванов А.С.</div>
+        <div class="user-role" id="userRole">Врач-онколог</div>
+      </div>
+      <div class="user-avatar">И</div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="container">
+    <!-- Patient Summary -->
+    <div class="patient-summary">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px;">
+        <div>
+          <h2 style="margin-bottom: 8px;">Результаты проверки соответствия</h2>
+          <p style="color: var(--text-sec);">Пациент ID: <span class="patient-id" id="patientId">ONC-2026-0847</span> | Проверено: <span id="checkDate">18.02.2026</span></p>
+        </div>
+        <div class="actions">
+          <button class="btn btn-outline" onclick="window.location.href='index.html'">⬅️ Назад</button>
+          <button class="btn btn-primary" onclick="exportReport()">📤 Экспорт отчёта</button>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Overall Compliance -->
+    <div class="compliance-card">
+      <div class="compliance-header">
+        <div class="compliance-title">📊 Общее соответствие клиническим рекомендациям</div>
+        <span class="badge warning" id="overallBadge">82%</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill progress-warning" style="width: 82%;" id="overallProgress">82%</div>
+      </div>
+      <div class="stats">
+        <div class="stat success">✅ 18 пунктов выполнено</div>
+        <div class="stat warning">⚠️ 5 требуют внимания</div>
+        <div class="stat error">❌ 2 отклонения</div>
+      </div>
+    </div>
+    
+    <!-- Diagnostics Section -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('diagnostics')">
+        <span>🔬 Диагностика <span class="badge success" id="diagBadge">100%</span></span>
+        <span id="diagArrow">▼</span>
+      </div>
+      <div class="section-content" id="diagnostics">
+        <div class="item">
+          <div class="item-icon">✅</div>
+          <div class="item-content">
+            <div class="item-title">Гистологическое подтверждение диагноза</div>
+            <div class="item-desc">Аденокарцинома подтверждена биопсией от 03.03.2025</div>
+            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
+              📚 RUSSCO 2024, п.3.2.1 →
+            </a>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-icon">✅</div>
+          <div class="item-content">
+            <div class="item-title">Иммуногистохимическое исследование (ИГХ)</div>
+            <div class="item-desc">HER2-статус 3+, PD-L1 CPS=8, MSI-статус определён</div>
+            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
+              📚 RUSSCO 2024, п.3.2.4 →
+            </a>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-icon">✅</div>
+          <div class="item-content">
+            <div class="item-title">Визуализация для стадирования (ПЭТ/КТ)</div>
+            <div class="item-desc">ПЭТ/КТ от 06.10.2025 подтвердила прогрессирование</div>
+            <a href="https://www.nccn.org/guidelines" target="_blank" class="guideline-link">
+              📚 NCCN Gastric Cancer v2.2024, п.3.1.7 →
+            </a>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-icon">⚠️</div>
+          <div class="item-content">
+            <div class="item-title">Оценка первичного очага</div>
+            <div class="item-desc">Первичный очаг не выявлен (CUP-синдром). Требуется дополнительное обследование для исключения опухоли ОМТ</div>
+            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
+              📚 RUSSCO 2024, п.3.1.5 →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Therapy Section -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('therapy')">
+        <span>💊 Терапия <span class="badge warning" id="therapyBadge">75%</span></span>
+        <span id="therapyArrow">▼</span>
+      </div>
+      <div class="section-content" id="therapy">
+        <div class="item">
+          <div class="item-icon">✅</div>
+          <div class="item-content">
+            <div class="item-title">1 линия терапии: TC + Трастузумаб</div>
+            <div class="item-desc">6 курсов проведено (05.25г — 09.25г). Соответствует рекомендациям для HER2+ опухоли</div>
+            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
+              📚 RUSSCO 2024, п.4.3.2 →
+            </a>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-icon">❌</div>
+          <div class="item-content">
+            <div class="item-title">2 линия терапии после прогрессирования на Трастузумабе</div>
+            <div class="item-desc">Рекомендован Трастузумаб дерукстекан (T-DXd) согласно DESTINY-Gastric01. Текущая схема требует пересмотра</div>
+            <a href="https://www.nccn.org/guidelines" target="_blank" class="guideline-link">
+              📚 NCCN Gastric Cancer v2.2024, п.4.5.1 →
+            </a>
+            <div class="actions" style="margin-top: 12px;">
+              <button class="btn btn-outline" style="padding: 6px 12px; font-size: 12px;">💡 Показать альтернативы</button>
+              <button class="btn btn-primary" style="padding: 6px 12px; font-size: 12px;">✍️ Обосновать отклонение</button>
+            </div>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-icon">⚠️</div>
+          <div class="item-content">
+            <div class="item-title">Мониторинг кардиотоксичности</div>
+            <div class="item-desc">При терапии Трастузумабом требуется ЭхоКГ каждые 3 месяца. Последнее обследование: 08.25г (интервал превышен)</div>
+            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
+              📚 RUSSCO 2024, п.4.3.1 →
+            </a>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-icon">✅</div>
+          <div class="item-content">
+            <div class="item-title">Молекулярно-генетическое профилирование</div>
+            <div class="item-desc">Выявлена амплификация ERBB2 (13 копий), мутация TP53. MSS-статус подтверждён</div>
+            <a href="https://www.nccn.org/guidelines" target="_blank" class="guideline-link">
+              📚 NCCN Biomarkers v1.2024, п.2.3 →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Additional Recommendations -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection('recommendations')">
+        <span>💡 Дополнительные рекомендации <span class="badge info">3</span></span>
+        <span id="recArrow">▼</span>
+      </div>
+      <div class="section-content hidden" id="recommendations">
+        <div class="item">
+          <div class="item-icon">🧬</div>
+          <div class="item-content">
+            <div class="item-title">Рассмотреть клинические исследования</div>
+            <div class="item-desc">Для HER2+ CUP-синдрома доступны исследования новых анти-HER2 препаратов (например, Zanidatamab)</div>
+            <a href="https://clinicaltrials.gov" target="_blank" class="guideline-link">
+              🔍 ClinicalTrials.gov →
+            </a>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-icon">⚠️</div>
+          <div class="item-content">
+            <div class="item-title">Контроль лекарственных взаимодействий</div>
+            <div class="item-desc">Проверить совместимость текущей терапии с сопутствующими препаратами пациента</div>
+          </div>
+        </div>
+        <div class="item">
+          <div class="item-icon">📅</div>
+          <div class="item-content">
+            <div class="item-title">План мониторинга</div>
+            <div class="item-desc">Рекомендуется КТ/ПЭТ-КТ каждые 2-3 цикла терапии для оценки ответа</div>
+            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
+              📚 RUSSCO 2024, п.5.1.2 →
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Disclaimer -->
+    <div class="disclaimer">
+      <strong>⚠️ Важно:</strong> OncoAI Assistant является вспомогательным инструментом для принятия клинических решений. 
+      Система не заменяет профессиональную медицинскую экспертизу. 
+      Окончательное решение о диагнозе и тактике лечения принимает лечащий врач. 
+      Инструмент опирается на актуальные на момент проверки клинические рекомендации RUSSCO, NCCN и Минздрава РФ.
+    </div>
+  </div>
+
+  <!-- Mode Toggle -->
+  <div class="mode-indicator" onclick="toggleMode()">
+    <span class="mode-icon" id="modeIcon">👤</span>
+    <span id="modeText">Режим пациента</span>
+  </div>
+
+  <script>
+    // State
+    let currentMode = 'doctor';
+    
+    // Toggle Mode
+    function toggleMode() {
+      currentMode = currentMode === 'doctor' ? 'patient' : 'doctor';
+      document.body.classList.toggle('patient-mode', currentMode === 'patient');
+      
+      const modeIcon = document.getElementById('modeIcon');
+      const modeText = document.getElementById('modeText');
+      const userRole = document.getElementById('userRole');
+      
+      if (currentMode === 'patient') {
+        modeIcon.textContent = '👨‍⚕️';
+        modeText.textContent = 'Режим врача';
+        userRole.textContent = 'Пациент';
+        
+        // Simplify content for patient
+        document.querySelectorAll('.guideline-link').forEach(link => {
+          link.classList.add('hidden');
+        });
+        document.querySelectorAll('.item-desc').forEach(desc => {
+          desc.style.fontSize = '15px';
+          desc.style.lineHeight = '1.7';
+        });
+      } else {
+        modeIcon.textContent = '👤';
+        modeText.textContent = 'Режим пациента';
+        userRole.textContent = 'Врач-онколог';
+        
+        // Show all content for doctor
+        document.querySelectorAll('.guideline-link').forEach(link => {
+          link.classList.remove('hidden');
+        });
+      }
+      
+      localStorage.setItem('oncoai_mode', currentMode);
+    }
+    
+    // Load saved mode
+    window.addEventListener('DOMContentLoaded', () => {
+      const savedMode = localStorage.getItem('oncoai_mode');
+      const caseData = localStorage.getItem('oncoai_case_data');
+      
+      if (savedMode === 'patient') {
+        toggleMode();
+      }
+      
+      if (caseData) {
+        const data = JSON.parse(caseData);
+        document.getElementById('patientId').textContent = data.patientId;
+        document.getElementById('checkDate').textContent = new Date(data.timestamp).toLocaleDateString('ru-RU');
+      }
+    });
+    
+    // Toggle Sections
+    function toggleSection(sectionId) {
+      const content = document.getElementById(sectionId);
+      const arrow = document.getElementById(sectionId + 'Arrow');
+      
+      if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        arrow.textContent = '▼';
+      } else {
+        content.classList.add('hidden');
+        arrow.textContent = '▶';
+      }
+    }
+    
+    // Export Report
+    function exportReport() {
+      alert('📤 Генерация PDF-отчёта...\n\nВ полной версии здесь будет скачивание документа с:\n• Сводкой соответствия\n• Списком рекомендаций\n• Ссылками на клинические гайдлайны\n• Обоснованиями отклонений');
+    }
+    
+    // Search from header (if needed)
+    // Add similar functionality as index.html if required
+  </script>
+</body>
+</html>

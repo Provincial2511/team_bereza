@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="css/fonts.css">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- === ИЗМЕНЕНИЕ: Только Roboto, один шрифт для всего === -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1565C0;
+      --primary-dark: #0D47A1;
+      --success: #2E7D32;
+      --success-light: #4CAF50;
+      --warning: #ED6C02;
+      --error: #C62828;
+      --bg-gradient: linear-gradient(135deg, #3b60e9 40%, #72b2ef 60%);
+      --bg-light: #F8F9FA;
+      --paper: #FFFFFF;
+      --text: #1A1A1A;
+      --text-sec: #666666;
+      --border: #E0E0E0;
+      --shadow: 0 10px 40px rgba(0,0,0,0.15);
+      --shadow-hover: 0 15px 50px rgba(0,0,0,0.2);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      /* === ИЗМЕНЕНИЕ: Единый шрифт Roboto === */
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-gradient);
+      min-height: 90vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      position: relative;
+      overflow-x: hidden;
+    }
+    
+    /* === ЕДИНОЕ ФОНОВОЕ ИЗОБРАЖЕНИЕ НА ВСЮ СТРАНИЦУ === */
+    .background-image {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    
+    .background-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 3.5;
+      filter: grayscale(10%) blur(2px);
+      transition: opacity 0.3s ease;
+    }
+    
+    /* Затемняющий оверлей для лучшей читаемости текста */
+    .background-image::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(50, 63, 181, 0.65) 0%, rgba(71, 119, 161, 0.65) 100%);
+    }
+    
+    .landing-container {
+      text-align: center;
+      max-width: 900px;
+      width: 100%;
+      position: relative;
+      z-index: 1; /* Поверх фона */
+    }
+    
+    .logo-section {
+      margin-bottom: 60px;
+      animation: fadeInDown 0.8s ease-out;
+    }
+    
+    /* === Логотип больше и вплотную к тексту === */
+    .logo-img {
+      max-width: 500px;
+      height: auto;
+      filter: drop-shadow(0 4px 12px rgba(255,255,255,0.3));
+      display: block;
+      margin: 0 auto 8px auto;
+    }
+    
+    .tagline {
+      /* === ИЗМЕНЕНИЕ: Убран Playfair Display, теперь Roboto === */
+      font-family: 'Roboto', sans-serif;
+      font-size: 27px;
+      font-weight: 700; /* Добавлен вес для заголовка */
+      color: white;
+      margin-top: 6px;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      animation: fadeInUp 0.8s ease-out 0.2s both;
+    }
+    
+    .mode-selection {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 32px;
+      margin-top: 40px;
+      animation: fadeInUp 0.8s ease-out 0.4s both;
+    }
+    
+    .mode-card {
+      background: var(--paper);
+      border-radius: 24px;
+      padding: 48px 32px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .mode-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary), var(--success));
+      transform: scaleX(0);
+      transition: transform 0.3s ease;
+    }
+    
+    .mode-card:hover {
+      transform: translateY(-8px);
+      box-shadow: var(--shadow-hover);
+    }
+    
+    .mode-card:hover::before {
+      transform: scaleX(1);
+    }
+    
+    .mode-card.doctor:hover {
+      border: 2px solid var(--primary);
+    }
+    
+    .mode-card.patient:hover {
+      border: 2px solid var(--success);
+    }
+    
+    /* === Иконки без кружков, просто как фото === */
+    .mode-icon {
+      width: 140px;
+      height: auto;
+      margin: 0 auto 24px;
+      border-radius: 0;
+      overflow: visible;
+      box-shadow: none;
+      transition: transform 0.3s ease;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .mode-card:hover .mode-icon {
+      transform: scale(1.05);
+    }
+    
+    .mode-icon img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 0;
+    }
+    
+    .mode-title {
+      /* === ИЗМЕНЕНИЕ: Убран Playfair Display, теперь Roboto === */
+      font-family: 'Roboto', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    
+    .mode-doctor .mode-title {
+      color: var(--primary);
+    }
+    
+    .mode-patient .mode-title {
+      color: var(--success);
+    }
+    
+    .mode-description {
+      font-size: 15px;
+      color: var(--text-sec);
+      line-height: 1.7;
+      margin-bottom: 24px;
+    }
+    
+    .mode-features {
+      text-align: left;
+      margin-top: 20px;
+    }
+    
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+      color: var(--text-sec);
+      margin-bottom: 8px;
+    }
+    
+    .feature-check {
+      width: 20px;
+      height: 20px;
+      background: linear-gradient(135deg, var(--primary), var(--success));
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+    
+    .disclaimer {
+      margin-top: 60px;
+      border-left: 4px solid var(--warning);
+      padding: 20px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      animation: fadeInUp 0.8s ease-out 0.6s both;
+    }
+    
+    .disclaimer-text {
+      font-size: 13px;
+      color: rgba(255,255,255,0.9);
+      line-height: 1.6;
+      max-width: 700px;
+      margin: 0 auto;        /* Центрирует блок по горизонтали */
+      text-align: center;
+    }
+    
+    .disclaimer-text strong {
+      color: white;
+    }
+    
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .tagline {
+        font-size: 22px;
+      }
+      
+      .mode-selection {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+      
+      .mode-card {
+        padding: 36px 24px;
+      }
+      
+      .mode-icon {
+        width: 110px;
+      }
+      
+      .mode-title {
+        font-size: 24px;
+      }
+      
+      .logo-img {
+        max-width: 320px;
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .background-image img {
+        opacity: 0.08; /* Ещё более приглушённый фон на мобильных */
+      }
+    }
+  </style>
+</head>
+<body>
+  
+  <!-- === ЕДИНОЕ ФОНОВОЕ ИЗОБРАЖЕНИЕ === -->
+  <div class="background-image" aria-hidden="true">
+    <img src="assets/images/background-main.png" alt="" onerror="this.src='https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1920&h=1080&fit=crop'">
+  </div>
+  
+  <div class="landing-container">
+    <!-- Logo Section -->
+    <div class="logo-section">
+      <img src="assets/images/logo1.png" alt="OncoAI Assistant" class="logo-img" onerror="this.src='https://via.placeholder.com/500x200/667eea/ffffff?text=OncoAI+Assistant'">
+      <h1 class="tagline">AI-помощник для проверки соответствия лечения онкопациентов клиническим рекомендациям RUSSCO и Минздрава РФ</h1>
+    </div>
+    
+    <!-- Mode Selection -->
+    <div class="mode-selection">
+      <!-- Doctor Mode -->
+      <div class="mode-card doctor" onclick="selectMode('doctor')">
+        <div class="mode-icon">
+          <img src="assets/images/doctor-icon.png" alt="Врач" onerror="this.src='https://via.placeholder.com/140x140/1565C0/ffffff?text=👨‍⚕️'">
+        </div>
+        <h2 class="mode-title">Для врачей</h2>
+        <p class="mode-description">
+          Профессиональный инструмент для автоматической проверки соответствия лечения клиническим рекомендациям
+        </p>
+        <div class="mode-features">
+          <div class="feature-item">
+            <span class="feature-check">✓</span>
+            <span>Детальный анализ проведённого обследования и лечения</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-check">✓</span>
+            <span>Ссылки на соответствующие пункты клинических рекомендаций</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-check">✓</span>
+            <span>Генерация обоснований отклонений от рекомендаций</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-check">✓</span>
+            <span>Экспорт отчётов</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-check">✓</span>
+            <span>Возможность задать вопрос в чате с нейросетью</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Patient Mode -->
+      <div class="mode-card patient" onclick="selectMode('patient')">
+        <div class="mode-icon">
+          <img src="assets/images/patient-icon.png" alt="Пациент" onerror="this.src='https://via.placeholder.com/140x140/2E7D32/ffffff?text=👤'">
+        </div>
+        <h2 class="mode-title">Для пациентов</h2>
+        <p class="mode-description">
+          Разъяснение диагноза и лечения простым языком
+          <div class="feature-item">
+            <span class="feature-check">✓</span>
+            <span>Визуальный план лечения</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-check">✓</span>
+            <span>Возможность задать вопрос в чате с нейросетью</span>
+          </div>
+          <div class="feature-item">
+            <span class="feature-check">✓</span>
+            <span>Уверенность в проводимом лечении</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Disclaimer -->
+    <div class="disclaimer">
+      <p class="disclaimer-text">
+        <strong>⚠️ Важно:</strong> "OncoCheck Assist" - вспомогательный инструмент для принятия клинических решений.<br> 
+        Система не заменяет профессиональную медицинскую экспертизу.<br> 
+        Окончательное решение о диагнозе и тактике лечения принимает лечащий врач.
+      </p>
+    </div>
+  </div>
+  
+  <script>
+    function selectMode(mode) {
+      localStorage.setItem('oncoai_mode', mode);
+      localStorage.setItem('oncoai_mode_selected', new Date().toISOString());
+      
+      const cards = document.querySelectorAll('.mode-card');
+      cards.forEach(card => {
+        card.style.opacity = '0.5';
+        card.style.pointerEvents = 'none';
+      });
+      
+      setTimeout(() => {
+        window.location.href = 'upload.html';
+      }, 400);
+    }
+    
+    window.addEventListener('DOMContentLoaded', () => {
+      const lastMode = localStorage.getItem('oncoai_mode');
+      const lastSelected = localStorage.getItem('oncoai_mode_selected');
+      
+      if (lastMode && lastSelected) {
+        const timeDiff = Date.now() - new Date(lastSelected).getTime();
+        if (timeDiff < 86400000) {
+          console.log('Предыдущий режим:', lastMode);
+        }
+      }
+    });
+  </script>
+</body>
+</html>
