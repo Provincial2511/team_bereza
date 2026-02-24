@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title> Загрузка истории болезни</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #1565C0;
+      --primary-dark: #0D47A1;
+      --primary-light: #42A5F5;
+      --success: #2E7D32;
+      --success-light: #4CAF50;
+      --warning: #ED6C02;
+      --error: #C62828;
+      --bg-gradient: linear-gradient(135deg, #3b60e9 40%, #72b2ef 60%);
+      --paper: #FFFFFF;
+      --text: #1A1A1A;
+      --text-sec: #666666;
+      --border: #E0E0E0;
+      --shadow: 0 10px 40px rgba(0,0,0,0.15);
+      --shadow-hover: 0 15px 50px rgba(0,0,0,0.2);
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg-gradient);
+      min-height: 100vh;
+      color: var(--text);
+      position: relative;
+      overflow-x: hidden;
+    }
+    
+    /* === ФОНОВОЕ ИЗОБРАЖЕНИЕ === */
+    .background-image {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    
+    .background-image img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 3.5;
+      filter: grayscale(10%) blur(2px);
+      transition: opacity 0.3s ease;
+    }
+    
+    .background-image::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, rgba(50, 63, 181, 0.65) 0%, rgba(71, 119, 161, 0.65) 100%);
+    }
+    
+    /* Header */
+    .header {
+      background: var(--paper);
+      padding: 16px 32px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(10px);
+    }
+    
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .logo-img {
+      height: 48px;
+      width: auto;
+    }
+    
+    .logo-text {
+      font-family: 'Roboto', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--primary), var(--success));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .user-menu {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    
+    .mode-badge {
+      padding: 6px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      background: linear-gradient(135deg, var(--primary), var(--primary-light));
+      color: white;
+    }
+    
+    .user-info {
+      text-align: right;
+    }
+    
+    .user-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: var(--text);
+    }
+    
+    .user-role {
+      font-size: 12px;
+      color: var(--text-sec);
+    }
+    
+    .user-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--success));
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 18px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    /* Main Content */
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 60px 20px;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .page-title {
+      font-family: 'Roboto', sans-serif;
+      font-size: 36px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 16px;
+      background: linear-gradient(135deg, var(--primary), var(--success));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    
+    .page-subtitle {
+      font-family: 'Roboto', sans-serif;
+      font-size: 20px;
+      text-align: center;
+      color: white;
+      margin-bottom: 48px;
+      font-weight: 400;
+    }
+    
+    /* Upload Section */
+    .upload-section {
+      background: var(--paper);
+      border-radius: 20px;
+      padding: 32px 24px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      border: 2px dashed var(--border);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+      max-width: 450px;
+      margin: 0 auto 32px auto;
+    }
+    
+    .upload-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, var(--primary), var(--success));
+    }
+    
+    .upload-section.dragover {
+      border-color: var(--primary);
+      background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(118, 75, 162, 0.05));
+      transform: scale(1.02);
+    }
+    
+    .upload-icon {
+      width: 80px;
+      height: auto;
+      margin: 0 auto 24px;
+      border-radius: 0;
+      overflow: visible;
+      box-shadow: none;
+      display: flex;
+      justify-content: center;
+    }
+    
+    .upload-icon img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 0;
+    }
+    
+    .upload-text {
+      font-family: 'Roboto', sans-serif;
+      font-size: 26px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    
+    .upload-hint {
+      font-family: 'Roboto', sans-serif;
+      font-size: 16px;
+      color: var(--text-sec);
+      margin-bottom: 32px;
+      font-style: normal;
+    }
+    
+    .file-input {
+      display: none;
+    }
+    
+    .btn {
+      padding: 12px 28px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      font-family: 'Roboto', sans-serif;
+    }
+    
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+      color: white;
+      box-shadow: 0 4px 16px rgba(21, 101, 192, 0.4);
+    }
+    
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(21, 101, 192, 0.5);
+    }
+    
+    .btn-outline {
+      background: transparent;
+      border: 2px solid var(--primary);
+      color: var(--primary);
+    }
+    
+    .btn-outline:hover {
+      background: var(--primary);
+      color: white;
+    }
+    
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    
+    .file-list {
+      margin-top: 32px;
+      text-align: left;
+      max-width: 600px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    
+    .file-item {
+      background: linear-gradient(135deg, #F8F9FA, #FFFFFF);
+      padding: 16px 20px;
+      border-radius: 12px;
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border: 1px solid var(--border);
+      transition: all 0.2s ease;
+    }
+    
+    .file-item:hover {
+      border-color: var(--primary-light);
+      transform: translateX(4px);
+    }
+    
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .file-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--primary-light), var(--primary));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+    }
+    
+    .file-name {
+      font-weight: 500;
+      font-size: 14px;
+      color: var(--text);
+    }
+    
+    .file-size {
+      font-size: 12px;
+      color: var(--text-sec);
+      margin-top: 2px;
+    }
+    
+    .file-remove {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #FFEBEE;
+      color: var(--error);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 18px;
+      transition: all 0.2s ease;
+    }
+    
+    .file-remove:hover {
+      background: var(--error);
+      color: white;
+    }
+    
+    .verify-section {
+      margin-top: 48px;
+      text-align: center;
+    }
+    
+    .verify-text {
+      font-family: 'Roboto', sans-serif;
+      font-size: 18px;
+      color: var(--text-sec);
+      margin-bottom: 24px;
+      font-style: normal;
+      font-weight: 400;
+    }
+    
+    /* Features Grid — 3 карточки в ряд */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+      margin-top: 60px;
+    }
+    
+    .feature-card {
+      background: var(--paper);
+      padding: 28px 24px;
+      border-radius: 16px;
+      text-align: center;
+      box-shadow: var(--shadow);
+      transition: all 0.3s ease;
+    }
+    
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-hover);
+    }
+    
+    .feature-icon {
+      width: 100px;
+      height: auto;
+      margin: 0 auto 16px;
+      background: transparent;
+      border-radius: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: none;
+    }
+    
+    .feature-icon img {
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      border-radius: 0;
+    }
+    
+    .feature-title {
+      font-family: 'Roboto', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    
+    .feature-desc {
+      font-family: 'Roboto', sans-serif;
+      font-size: 14px;
+      color: var(--text-sec);
+      line-height: 1.6;
+      font-weight: 400;
+    }
+    
+    /* === DISCLAIMER — ЦЕНТРИРОВАННЫЙ, НЕЗАВИСИМАЯ ШИРИНА === */
+    .disclaimer {
+      margin: 60px auto 0 auto;  /* Центрируем блок */
+      border-left: 4px solid var(--warning);
+      padding: 20px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 16px;
+      backdrop-filter: blur(10px);
+      animation: fadeInUp 0.8s ease-out 0.6s both;
+      max-width: 700px;  /* Независимая ширина, не как у карточек */
+      width: 100%;
+    }
+    
+    .disclaimer-text {
+      font-size: 13px;
+      color: rgba(255,255,255,0.9);
+      line-height: 1.6;
+      text-align: center;  /* Центрируем текст внутри */
+    }
+    
+    .disclaimer-text strong {
+      color: white;
+      font-weight: normal;  /* Убираем жирность */
+    }
+    
+    /* Скрываем ссылки на КР в режиме пациента */
+    body.patient-mode .guideline-link {
+      display: none !important;
+    }
+    
+    /* Back Button */
+    .back-button {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      padding: 12px 24px;
+      background: var(--paper);
+      border-radius: 50px;
+      box-shadow: var(--shadow);
+      cursor: pointer;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+      z-index: 100;
+      font-family: 'Roboto', sans-serif;
+      font-size: 14px;
+    }
+    
+    .back-button:hover {
+      transform: translateX(-4px);
+      box-shadow: var(--shadow-hover);
+    }
+    
+    @media (max-width: 768px) {
+      .header { padding: 12px 16px; }
+      .logo-text { font-size: 18px; }
+      .page-title { font-size: 28px; }
+      .upload-section { padding: 40px 24px; }
+      .upload-text { font-size: 22px; }
+      
+      /* На мобильных: карточки в 1 колонку, дисклеймер на всю ширину */
+      .features-grid { grid-template-columns: 1fr; }
+      .feature-icon { width: 80px; }
+      .disclaimer { max-width: 100%; }
+    }
+    
+    @media (max-width: 480px) {
+      .background-image img { opacity: 0.08; }
+    }
+  </style>
+</head>
+<body>
+  
+  <!-- Фоновое изображение -->
+  <div class="background-image" aria-hidden="true">
+    <img src="assets/images/background-main.png" alt="" onerror="this.src='https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=1920&h=1080&fit=crop'">
+  </div>
+  
+  <!-- Header -->
+  <header class="header">
+    <div class="logo-container">
+      <img src="assets/images/logo2.png" alt="OncoAI" class="logo-img" onerror="this.src='https://via.placeholder.com/48x48/667eea/ffffff?text=O'">
+      <span class="logo-text"></span>
+    </div>
+    <div class="user-menu">
+      <span class="mode-badge" id="modeBadge">Для врачей</span>
+      <div class="user-info">
+        <div class="user-name">Доктор Иванов А.С.</div>
+        <div class="user-role" id="userRole">Врач-онколог</div>
+      </div>
+      <div class="user-avatar">И</div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <div class="container">
+    <p class="page-subtitle">Загрузите историю болезни пациента для автоматического анализа по стандартам RUSSCO и Министерства Здравоохранения РФ:</p>
+    
+    <!-- Upload Section -->
+    <div class="upload-section" id="uploadSection">
+      <div class="upload-icon">
+        <img src="assets/images/medical-record-icon.png" alt="История болезни" onerror="this.src='https://via.placeholder.com/140x140/1565C0/ffffff?text=📋'">
+      </div>
+      <h2 class="upload-text">Перетащите файл истории болезни сюда</h2>
+      <p class="upload-hint">Поддерживаемые форматы: PDF, DOCX, TXT (макс. 50 МБ)</p>
+      <input type="file" class="file-input" id="fileInput" accept=".pdf,.docx,.txt" multiple>
+      <button class="btn btn-outline" onclick="document.getElementById('fileInput').click()">📁 Выбрать файл</button>
+      
+      <div class="file-list" id="fileList"></div>
+      
+      <div class="verify-section">
+        <p class="verify-text">Нажмите кнопку ниже для начала анализа:</p>
+        <button class="btn btn-primary" id="verifyBtn" disabled onclick="startVerification()">
+          🔍 Проверить соответствие рекомендациям
+        </button>
+      </div>
+    </div>
+    
+    <!-- Features Grid — 3 карточки -->
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">
+          <img src="assets/images/icon-diagnostics.png" alt="Диагностика" onerror="this.src='https://via.placeholder.com/100x100/1565C0/ffffff?text=🔬'">
+        </div>
+        <h3 class="feature-title">Диагностика</h3>
+        <p class="feature-desc">Проверка объема лабораторных и инструментальных обследований пациента</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <img src="assets/images/icon-therapy.png" alt="Терапия" onerror="this.src='https://via.placeholder.com/100x100/2E7D32/ffffff?text=💊'">
+        </div>
+        <h3 class="feature-title">Терапия</h3>
+        <p class="feature-desc">Сопоставление лечения с клиническими рекомендациями</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">
+          <img src="assets/images/icon-safety.png" alt="Контроль безопасности" onerror="this.src='https://via.placeholder.com/100x100/C62828/ffffff?text=⚠️'">
+        </div>
+        <h3 class="feature-title">Контроль безопасности</h3>
+        <p class="feature-desc">Выявление лекарственных взаимодействий</p>
+      </div>
+    </div>
+    
+    <!-- Disclaimer — ЦЕНТРИРОВАННЫЙ, НЕЗАВИСИМАЯ ШИРИНА -->
+    <div class="disclaimer">
+      <p class="disclaimer-text">
+        <strong>⚠️ Важно:</strong> "OncoCheck Assist" - вспомогательный инструмент для принятия клинических решений.<br> 
+        Система не заменяет профессиональную медицинскую экспертизу.<br> 
+        Окончательное решение о диагнозе и тактике лечения принимает лечащий врач.
+      </p>
+    </div>
+  </div>
+  
+  <!-- Back Button -->
+  <div class="back-button" onclick="window.location.href='index2.html'">
+    ← На главную
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      const mode = localStorage.getItem('oncoai_mode') || 'doctor';
+      updateModeDisplay(mode);
+    });
+    
+    function updateModeDisplay(mode) {
+      const modeBadge = document.getElementById('modeBadge');
+      const userRole = document.getElementById('userRole');
+      
+      if (mode === 'patient') {
+        document.body.classList.add('patient-mode');
+        modeBadge.textContent = 'Режим пациента';
+        modeBadge.style.background = 'linear-gradient(135deg, #2E7D32, #4CAF50)';
+        userRole.textContent = 'Пациент';
+      } else {
+        document.body.classList.remove('patient-mode');
+        modeBadge.textContent = 'Режим врача';
+        modeBadge.style.background = 'linear-gradient(135deg, #1565C0, #42A5F5)';
+        userRole.textContent = 'Врач-онколог';
+      }
+    }
+  </script>
+</body>
+</html>
