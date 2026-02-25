@@ -139,7 +139,13 @@ class LocalGenerator:
         self.device = torch.device(device)
 
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForCausalLM.from_pretrained(model_name).to(self.device)
+
+        # On CUDA load in float16 to halve VRAM usage (~14 GB fp32 → ~7 GB fp16).
+        # On CPU keep float32 (fp16 is not accelerated on most CPUs).
+        dtype = torch.float16 if self.device.type == "cuda" else torch.float32
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_name, torch_dtype=dtype
+        ).to(self.device)
 
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token

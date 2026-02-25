@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -36,7 +37,8 @@ class AppState:
     """
 
     def __init__(self) -> None:
-        self.cfg = Config()
+        device = os.getenv("DEVICE", "cpu").lower()
+        self.cfg = Config(device=device)
         self.embedder: TextEmbedder | None = None
         self.store: FaissStore | None = None
         self.generator: LocalGenerator | None = None
