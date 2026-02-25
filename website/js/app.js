@@ -78,9 +78,10 @@ async function startVerification() {
     }
 
     const data = await res.json();
-    localStorage.setItem('oncoai_session_id', data.session_id);
-    localStorage.setItem('oncoai_response',   data.response);
-    localStorage.setItem('oncoai_structured', data.structured ? JSON.stringify(data.structured) : '');
+    localStorage.setItem('oncoai_session_id',      data.session_id);
+    localStorage.setItem('oncoai_response',        data.response);
+    localStorage.setItem('oncoai_patient_summary', data.patient_summary || '');
+    localStorage.setItem('oncoai_structured',      data.structured ? JSON.stringify(data.structured) : '');
     localStorage.setItem('oncoai_case_data', JSON.stringify({
       files: AppState.uploadedFiles.map(f => f.name),
       timestamp: new Date().toISOString()

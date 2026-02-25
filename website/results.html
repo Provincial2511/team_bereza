@@ -1139,9 +1139,10 @@
     }
 
     function populateStructured(s) {
-      // Patient summary
+      // Если LLM вернул структурированные поля пациента — уточняем карточку
       const el = document.getElementById('patientSummary');
       if (el && (s.diagnosis || s.age || s.comorbidities)) {
+        el.style.whiteSpace = '';
         el.innerHTML =
           '<strong>📋 Диагноз:</strong> ' + esc(s.diagnosis || '—') + ' <br>' +
           '<strong>Возраст:</strong> '     + esc(s.age        || '—') + ' <br>' +
@@ -1247,7 +1248,17 @@
         loading.textContent = 'Результаты анализа не найдены. Загрузите файл пациента.';
       }
 
-      // Заполнить структурированные секции из structured JSON
+        // Данные пациента — из patient_summary (всегда есть, без LLM)
+      const patientSummary = localStorage.getItem('oncoai_patient_summary');
+      if (patientSummary) {
+        const el = document.getElementById('patientSummary');
+        if (el) {
+          el.style.whiteSpace = 'pre-wrap';
+          el.innerHTML = '<strong>📋 Данные пациента:</strong><br>' + esc(patientSummary);
+        }
+      }
+
+      // Структурированные секции из JSON (опционально, может быть пустым)
       const structuredRaw = localStorage.getItem('oncoai_structured');
       if (structuredRaw) {
         try {
@@ -1255,7 +1266,6 @@
           populateStructured(structured);
         } catch (e) {
           console.warn('Не удалось разобрать structured JSON:', e);
-          // Статические данные остаются как fallback
         }
       }
 

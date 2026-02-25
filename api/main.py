@@ -44,6 +44,25 @@ app.add_middleware(
 )
 
 
+def _extract_patient_summary(patient_text: str, max_chars: int = 600) -> str:
+    """
+    Return the first meaningful block of patient text (up to max_chars).
+
+    Takes up to 3 non-empty paragraphs from the beginning of the document —
+    this is where patient demographics and diagnosis are typically located.
+    No LLM required, always reliable.
+    """
+    paragraphs = [p.strip() for p in patient_text.split("\n\n") if p.strip()]
+    summary_parts: list[str] = []
+    total = 0
+    for p in paragraphs[:6]:
+        if total + len(p) > max_chars:
+            break
+        summary_parts.append(p)
+        total += len(p)
+    return "\n\n".join(summary_parts) if summary_parts else patient_text[:max_chars].strip()
+
+
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 async def analyze(
     file: UploadFile = File(..., description="DOCX-файл карты пациента"),
@@ -116,9 +135,17 @@ async def analyze(
     else:
         logger.info("Structured extraction done.")
 
+    # Краткая выжимка из карты пациента — без LLM, всегда надёжно.
+    patient_summary = _extract_patient_summary(patient_text)
+
     session_id = app_state.create_session(patient_text, retrieved_sections, mode)
     logger.info("Analyze complete. session_id=%s mode=%s", session_id, mode)
-    return AnalyzeResponse(session_id=session_id, response=response, structured=structured)
+    return AnalyzeResponse(
+        session_id=session_id,
+        response=response,
+        patient_summary=patient_summary,
+        structured=structured,
+    )
 
 
 @app.post("/api/chat", response_model=ChatResponse)

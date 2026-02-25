@@ -8,6 +8,7 @@ from pydantic import BaseModel
 class AnalyzeResponse(BaseModel):
     session_id: str
     response: str
+    patient_summary: str = ""
     structured: Optional[dict[str, Any]] = None
 
 
