@@ -290,7 +290,7 @@ class LocalGenerator:
         self,
         patient_text: str,
         main_analysis: str,
-        max_new_tokens: int = 600,
+        max_new_tokens: int = 350,
     ) -> dict | None:
         """
         Extract structured sections from patient data and main analysis.
