@@ -24,7 +24,12 @@ class Config:
     overlap: int = 50
 
     # --- Retrieval ---
-    top_k: int = 5
+    top_k: int = 8
+    # L2 distance threshold for retrieved chunks (L2-normalized vectors,
+    # so range is [0, 2]; lower = more similar).
+    # 1.2 ≈ cosine similarity 0.28 — filters clearly irrelevant chunks.
+    # If fewer than 2 chunks pass the threshold, all top_k are used as fallback.
+    retrieval_score_threshold: float = 1.2
 
     # --- Generation ---
     max_new_tokens: int = 512
