@@ -96,10 +96,12 @@ async def analyze(
     results = app_state.store.search(patient_emb[0], top_k=cfg.top_k)
     retrieved_sections = [r["text"] for r in results]
 
-    # Генерация — выносим CPU-bound вызовы в поток, чтобы не блокировать event loop
-    # (иначе Ctrl+C не работает и сервер не отвечает на другие запросы во время инференса)
-    loop = asyncio.get_event_loop()
+    # Генерация — CPU-bound вызовы в thread executor (event loop остаётся свободным,
+    # Ctrl+C работает, другие запросы не блокируются)
+    loop = asyncio.get_running_loop()
 
+    logger.info("Starting main generation (device=%s, max_new_tokens=%d)...",
+                cfg.device, cfg.max_new_tokens)
     response = await loop.run_in_executor(
         None,
         partial(
@@ -110,6 +112,8 @@ async def analyze(
             max_new_tokens=cfg.max_new_tokens,
         ),
     )
+    logger.info("Main generation done (%d chars). Starting structured extraction...",
+                len(response))
 
     structured = await loop.run_in_executor(
         None,
@@ -121,6 +125,8 @@ async def analyze(
     )
     if structured is None:
         logger.warning("generate_structured returned None; structured sections will be empty")
+    else:
+        logger.info("Structured extraction done.")
 
     session_id = app_state.create_session(patient_text, retrieved_sections, mode)
     logger.info("Analyze complete. session_id=%s mode=%s", session_id, mode)
@@ -138,7 +144,7 @@ async def chat(body: ChatRequest) -> ChatResponse:
     if not session:
         raise HTTPException(status_code=404, detail="Сессия не найдена или истекла.")
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     reply = await loop.run_in_executor(
         None,
         partial(

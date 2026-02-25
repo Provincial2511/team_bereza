@@ -27,7 +27,7 @@ class Config:
     top_k: int = 5
 
     # --- Generation ---
-    max_new_tokens: int = 1024
+    max_new_tokens: int = 512
     device: str = "cpu"
     mode: str = "doctor"  # "doctor" | "patient"
 
