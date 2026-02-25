@@ -37,8 +37,11 @@ class AppState:
     """
 
     def __init__(self) -> None:
-        device = os.getenv("DEVICE", "cpu").lower()
-        self.cfg = Config(device=device)
+        self.cfg = Config()
+        # DEVICE env var overrides config.py (e.g. DEVICE=cuda uvicorn ...)
+        env_device = os.getenv("DEVICE")
+        if env_device:
+            self.cfg.device = env_device.lower()
         self.embedder: TextEmbedder | None = None
         self.store: FaissStore | None = None
         self.generator: LocalGenerator | None = None

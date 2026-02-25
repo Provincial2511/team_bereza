@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import tempfile
 from contextlib import asynccontextmanager
-from functools import partial
 from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -96,32 +94,22 @@ async def analyze(
     results = app_state.store.search(patient_emb[0], top_k=cfg.top_k)
     retrieved_sections = [r["text"] for r in results]
 
-    # Генерация — CPU-bound вызовы в thread executor (event loop остаётся свободным,
-    # Ctrl+C работает, другие запросы не блокируются)
-    loop = asyncio.get_running_loop()
-
+    # Генерация (синхронные вызовы — блокируют event loop на время инференса,
+    # но это безопасно: один запрос за раз, модель не thread-safe)
     logger.info("Starting main generation (device=%s, max_new_tokens=%d)...",
                 cfg.device, cfg.max_new_tokens)
-    response = await loop.run_in_executor(
-        None,
-        partial(
-            app_state.generator.generate,
-            patient_text=patient_text,
-            retrieved_sections=retrieved_sections,
-            mode=mode,
-            max_new_tokens=cfg.max_new_tokens,
-        ),
+    response = app_state.generator.generate(
+        patient_text=patient_text,
+        retrieved_sections=retrieved_sections,
+        mode=mode,
+        max_new_tokens=cfg.max_new_tokens,
     )
     logger.info("Main generation done (%d chars). Starting structured extraction...",
                 len(response))
 
-    structured = await loop.run_in_executor(
-        None,
-        partial(
-            app_state.generator.generate_structured,
-            patient_text=patient_text,
-            main_analysis=response,
-        ),
+    structured = app_state.generator.generate_structured(
+        patient_text=patient_text,
+        main_analysis=response,
     )
     if structured is None:
         logger.warning("generate_structured returned None; structured sections will be empty")
@@ -144,16 +132,11 @@ async def chat(body: ChatRequest) -> ChatResponse:
     if not session:
         raise HTTPException(status_code=404, detail="Сессия не найдена или истекла.")
 
-    loop = asyncio.get_running_loop()
-    reply = await loop.run_in_executor(
-        None,
-        partial(
-            app_state.generator.answer,
-            question=body.message,
-            patient_text=session.patient_text,
-            retrieved_sections=session.retrieved_sections,
-            mode=session.mode,
-        ),
+    reply = app_state.generator.answer(
+        question=body.message,
+        patient_text=session.patient_text,
+        retrieved_sections=session.retrieved_sections,
+        mode=session.mode,
     )
 
     session.history.append({"role": "user", "content": body.message})
