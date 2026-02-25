@@ -105,41 +105,55 @@ def main() -> None:
     else:
         print("FAISS index not found. Building from PDF...")
 
+        store = None
+        all_sections = []
+        all_metadata = []
+
+        embedder = TextEmbedder(model_name=cfg.embedder_model)
+
+        guideline_parser = GuidelineParserStub(
+        chunk_size=cfg.chunk_size,
+        overlap=cfg.overlap,
+        model_name=cfg.embedder_model
+        )
+
         # 1. OCR / text extraction.
         t0 = time()
-        try:
-            guideline_text = extract_text_from_pdf(
-                cfg.guideline_pdf_path, languages=cfg.ocr_languages
-            )
-            print("Guideline text extracted.\n")
-        except FileNotFoundError as exc:
-            print(f"Error: {exc}")
-            return
-        stage_durations["ocr"] = time() - t0
+        for pdf_path in Path(cfg.guideline_path).glob("*.pdf"):
+            print(f"Processing: {pdf_path.name}...")
+            try:
+                guideline_text = extract_text_from_pdf(
+                    str(pdf_path), languages=cfg.ocr_languages
+                )
+                print(f"Guideline text extracted from {pdf_path}.\n")
+            except FileNotFoundError as exc:
+                print(f"Error: {exc}")
+                continue
 
-        if not guideline_text.strip():
-            print("Error: text extraction returned empty string.")
+            stage_durations["ocr"] = time() - t0
+
+            # 2. Chunking.
+            t0 = time()
+            guideline_sections = guideline_parser.parse(guideline_text)
+            print(f"Guideline split into {len(guideline_sections)} chunks.\n")
+            stage_durations["chunking"] = time() - t0
+
+            if not guideline_sections:
+                print(f"Error: chunking produced no sections from {pdf_path.name}.")
+                continue
+            
+            metadata = [{"source": pdf_path.name} for _ in guideline_sections]
+            all_sections.extend(guideline_sections)
+            all_metadata.extend(metadata)
+        
+        if not all_sections:
+            print("Error: no guideline sections collected from PDFs")
             return
 
-        # 2. Chunking.
-        t0 = time()
-        guideline_parser = GuidelineParserStub(
-            chunk_size=cfg.chunk_size,
-            overlap=cfg.overlap,
-            model_name=cfg.embedder_model,
-        )
-        guideline_sections = guideline_parser.parse(guideline_text)
-        print(f"Guideline split into {len(guideline_sections)} chunks.\n")
-        stage_durations["chunking"] = time() - t0
-
-        if not guideline_sections:
-            print("Error: chunking produced no sections.")
-            return
 
         # 3. Embed sections.
         t0 = time()
-        embedder = TextEmbedder(model_name=cfg.embedder_model)
-        section_embeddings = embedder.embed_batch(guideline_sections)
+        section_embeddings = embedder.embed_batch(all_sections)
         print("Guideline sections embedded.\n")
         stage_durations["embedding"] = time() - t0
 
@@ -151,10 +165,9 @@ def main() -> None:
 
         # 4. Build and persist FAISS index.
         store = FaissStore(dimension=dimension)
-        empty_metadata = [{} for _ in range(n_items)]
-        store.add(guideline_sections, section_embeddings, empty_metadata)
+        store.add(all_sections, section_embeddings, all_metadata)
         store.save(cfg.faiss_index_path)
-        print(f"FAISS index saved to '{cfg.faiss_index_path}'.\n")
+        print(f"FAISS index saved to '{cfg.faiss_index_path}'. Total chunks: {n_items}\n")
 
     # --- Patient data ---
     try:
