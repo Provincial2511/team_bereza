@@ -301,12 +301,17 @@ class LocalGenerator:
         Expected structure::
 
             {
-              "patient_info": {"diagnosis": "...", "age": "...", "comorbidities": "..."},
+              "diagnosis": "...",
+              "age": "...",
+              "comorbidities": "...",
               "overall_score": 75,
-              "diagnostics": [{"title": "...", "description": "...", "status": "ok|warning|error"}],
-              "therapy":      [...],
-              "safety":       [...],
-              "recommendations": [{"title": "...", "description": "..."}]
+              "compliant": [
+                {"title": "...", "category": "Диагностика|Терапия|Контроль безопасности", "text": "..."}
+              ],
+              "non_compliant": [
+                {"title": "...", "category": "Диагностика|Терапия|Контроль безопасности", "text": "..."}
+              ],
+              "recommendations": [{"title": "...", "text": "..."}]
             }
         """
         system_prompt = (
@@ -315,24 +320,28 @@ class LocalGenerator:
             "Выведи ТОЛЬКО валидный JSON-объект — без markdown, без пояснений.\n\n"
             "Требуемая структура:\n"
             "{\n"
-            '  "patient_info": {"diagnosis": "...", "age": "...", "comorbidities": "..."},\n'
+            '  "diagnosis": "основной диагноз",\n'
+            '  "age": "возраст пациента",\n'
+            '  "comorbidities": "сопутствующие заболевания или пустая строка",\n'
             '  "overall_score": <целое число 0-100>,\n'
-            '  "diagnostics": [{"title": "...", "description": "...", "status": "ok|warning|error"}],\n'
-            '  "therapy":      [{"title": "...", "description": "...", "status": "ok|warning|error"}],\n'
-            '  "safety":       [{"title": "...", "description": "...", "status": "ok|warning|error"}],\n'
-            '  "recommendations": [{"title": "...", "description": "..."}]\n'
+            '  "compliant": [\n'
+            '    {"title": "...", "category": "Диагностика|Терапия|Контроль безопасности", "text": "..."}\n'
+            '  ],\n'
+            '  "non_compliant": [\n'
+            '    {"title": "...", "category": "Диагностика|Терапия|Контроль безопасности", "text": "..."}\n'
+            '  ],\n'
+            '  "recommendations": [\n'
+            '    {"title": "...", "text": "..."}\n'
+            '  ]\n'
             "}\n\n"
             "Правила:\n"
-            "- diagnosis: основной диагноз из данных пациента\n"
-            "- age: возраст пациента, если указан\n"
-            "- comorbidities: сопутствующие заболевания, если указаны\n"
-            "- overall_score: оцени % соответствия лечения рекомендациям (0-100)\n"
-            "- diagnostics: 1-3 ключевых диагностических процедуры\n"
-            "- therapy: 1-3 ключевых этапа лечения с оценкой соответствия\n"
-            "- safety: 1-2 пункта контроля безопасности\n"
-            "- recommendations: 1-3 дополнительных рекомендации\n"
-            "- Весь текст — на русском языке\n"
-            '- status должен быть строго "ok", "warning" или "error"\n'
+            "- diagnosis, age, comorbidities: из данных пациента\n"
+            "- overall_score: % соответствия лечения рекомендациям (0-100)\n"
+            "- compliant: пункты лечения, которые СООТВЕТСТВУЮТ клиническим рекомендациям (2-5 пунктов)\n"
+            "- non_compliant: пункты лечения, которые НЕ соответствуют или вызывают вопросы (1-4 пункта)\n"
+            "- category — одно из: Диагностика, Терапия, Контроль безопасности\n"
+            "- recommendations: дополнительные рекомендации (1-3 пункта)\n"
+            "- Весь текст на русском языке\n"
         )
 
         user_message = (

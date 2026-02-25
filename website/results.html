@@ -459,6 +459,80 @@
       color: var(--primary);
     }
     
+    /* === COMPLIANCE GRID === */
+    .compliance-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 900px) {
+      .compliance-grid { grid-template-columns: 1fr; }
+    }
+
+    .compliance-section {
+      background: var(--paper);
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .compliance-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 14px;
+      border-bottom: 2px solid #F0F0F0;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .compliance-section-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .compliance-item {
+      padding: 14px 0;
+      border-bottom: 1px solid #F5F5F5;
+    }
+
+    .compliance-item:last-child { border-bottom: none; }
+
+    .compliance-category {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-sec);
+      margin-bottom: 4px;
+    }
+
+    .compliance-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .compliance-text {
+      font-size: 14px;
+      color: var(--text-sec);
+      line-height: 1.6;
+    }
+
+    .compliance-empty {
+      color: var(--text-sec);
+      font-size: 14px;
+      padding: 12px 0;
+      font-style: italic;
+    }
+
     /* === СЕКЦИЯ ДОПОЛНИТЕЛЬНЫХ РЕКОМЕНДАЦИЙ === */
     .recommendation-item {
       padding: 16px;
@@ -843,136 +917,55 @@
       <div class="ai-response-text" id="aiResponseText" style="display:none;"></div>
     </div>
 
-    <!-- Diagnostics Section — С УПРОЩЁННЫМИ ОБЪЯСНЕНИЯМИ ДЛЯ ПАЦИЕНТА -->
-    <div class="section">
-      <div class="section-header" onclick="toggleSection('diagnostics')">
-        <h3 class="section-title">
-          <img src="assets/images/icon-diagnostics.png" alt="🔬" style="width:32px;height:32px;object-fit:contain" onerror="this.src='https://via.placeholder.com/32/1565C0/ffffff?text=🔬'">
-          Диагностика
-          <span class="badge success" id="diagBadge">100%</span>
-        </h3>
-        <span id="diagArrow" style="cursor: pointer; font-size: 20px;">▼</span>
-      </div>
-      <div id="diagnostics">
-        <div class="item">
-          <div class="item-icon">
-            <img src="assets/images/accept-icon.png" alt="✓" onerror="this.src='https://via.placeholder.com/48/4CAF50/ffffff?text=✓'">
-          </div>
-          <div class="item-content">
-            <h4 class="item-title">Гистологическое подтверждение диагноза</h4>
-            <!-- Для врача -->
-            <p class="item-desc">Аденокарцинома подтверждена биопсией от 03.03.2025</p>
-            <!-- Для пациента (упрощённо) -->
-            <p class="item-desc-patient">Злокачественное новообразование (аденокарцинома) подтверждена микроскопическим исследованием ткани от 03.03.2025</p>
-            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
-              📚 RUSSCO 2024, п.3.2.1 →
-            </a>
-          </div>
+    <!-- Compliance Grid -->
+    <div class="compliance-grid">
+
+      <!-- Соответствует КР -->
+      <div class="compliance-section">
+        <div class="compliance-section-header">
+          <span class="compliance-section-title">
+            <img src="assets/images/accept-icon.png" alt="✓" style="width:24px;height:24px;object-fit:contain" onerror="this.src='https://via.placeholder.com/24/4CAF50/ffffff?text=✓'">
+            Соответствует рекомендациям
+          </span>
+          <span class="badge success" id="compliantBadge">—</span>
         </div>
-        <div class="item">
-          <div class="item-icon">
-            <img src="assets/images/accept-icon.png" alt="✓" onerror="this.src='https://via.placeholder.com/48/4CAF50/ffffff?text=✓'">
+        <div id="compliantList">
+          <div class="compliance-item">
+            <div class="compliance-category">Диагностика</div>
+            <div class="compliance-title">Гистологическое подтверждение</div>
+            <div class="compliance-text">Аденокарцинома подтверждена биопсией от 03.03.2025</div>
           </div>
-          <div class="item-content">
-            <h4 class="item-title">Иммуногистохимическое исследование (ИГХ)</h4>
-            <!-- Для врача -->
-            <p class="item-desc">HER2-статус 3+, PD-L1 CPS=8, MSI-статус определён</p>
-            <!-- Для пациента (упрощённо) -->
-            <p class="item-desc-patient">Анализ показывает, какие белки есть в опухоли, что помогает подобрать правильное лечение. Выявлены: HER2-статус 3+, PD-L1 CPS=8, MSI-статус</p>
-            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
-              📚 RUSSCO 2024, п.3.2.4 →
-            </a>
+          <div class="compliance-item">
+            <div class="compliance-category">Терапия</div>
+            <div class="compliance-title">1 линия терапии: TC + Трастузумаб</div>
+            <div class="compliance-text">6 курсов проведено. Соответствует рекомендациям для HER2+ опухоли</div>
           </div>
         </div>
       </div>
-    </div>
-    
-    <!-- Therapy Section — С УПРОЩЁННЫМИ ОБЪЯСНЕНИЯМИ ДЛЯ ПАЦИЕНТА -->
-    <div class="section">
-      <div class="section-header" onclick="toggleSection('therapy')">
-        <h3 class="section-title">
-          <img src="assets/images/icon-therapy.png" alt="💊" style="width:32px;height:32px;object-fit:contain" onerror="this.src='https://via.placeholder.com/32/2E7D32/ffffff?text=💊'">
-          Терапия
-          <span class="badge warning" id="therapyBadge">75%</span>
-        </h3>
-        <span id="therapyArrow" style="cursor: pointer; font-size: 20px;">▼</span>
-      </div>
-      <div id="therapy" style="display: none;">
-        <div class="item">
-          <div class="item-icon">
-            <img src="assets/images/accept-icon.png" alt="✓" onerror="this.src='https://via.placeholder.com/48/4CAF50/ffffff?text=✓'">
-          </div>
-          <div class="item-content">
-            <h4 class="item-title">1 линия терапии: TC + Трастузумаб</h4>
-            <!-- Для врача -->
-            <p class="item-desc">6 курсов проведено (05.25г — 09.25г). Соответствует рекомендациям для HER2+ опухоли</p>
-            <!-- Для пациента (упрощённо) -->
-            <p class="item-desc-patient">Первое лечение: комбинация двух препаратов, которые признаны эффективными при лечении вашего типа опухоли (HER2+)</p>
-            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
-              📚 RUSSCO 2024, п.4.3.2 →
-            </a>
-          </div>
+
+      <!-- Не соответствует КР -->
+      <div class="compliance-section">
+        <div class="compliance-section-header">
+          <span class="compliance-section-title">
+            <img src="assets/images/decline-icon.png" alt="✕" style="width:24px;height:24px;object-fit:contain" onerror="this.src='https://via.placeholder.com/24/C62828/ffffff?text=✕'">
+            Не соответствует / Требует внимания
+          </span>
+          <span class="badge error" id="nonCompliantBadge">—</span>
         </div>
-        <div class="item">
-          <div class="item-icon">
-            <img src="assets/images/decline-icon.png" alt="✕" onerror="this.src='https://via.placeholder.com/48/C62828/ffffff?text=✕'">
+        <div id="nonCompliantList">
+          <div class="compliance-item">
+            <div class="compliance-category">Терапия</div>
+            <div class="compliance-title">2 линия терапии после прогрессирования</div>
+            <div class="compliance-text">Рекомендован Трастузумаб дерукстекан (T-DXd)</div>
           </div>
-          <div class="item-content">
-            <h4 class="item-title">2 линия терапии после прогрессирования</h4>
-            <!-- Для врача -->
-            <p class="item-desc">Рекомендован Трастузумаб дерукстекан (T-DXd) согласно DESTINY-Gastric01</p>
-            <!-- Для пациента (упрощённо) -->
-            <p class="item-desc-patient">Врачом был предложен переход на новый препарат (Трастузумаб дерукстекан (T-DXd)) после снижения эффективности работы первой линии терапии</p>
-            <a href="https://www.nccn.org/guidelines" target="_blank" class="guideline-link">
-              📚 NCCN Gastric Cancer v2.2024, п.4.5.1 →
-            </a>
+          <div class="compliance-item">
+            <div class="compliance-category">Контроль безопасности</div>
+            <div class="compliance-title">Контроль лекарственных взаимодействий</div>
+            <div class="compliance-text">Требуется проверка совместимости с сопутствующей терапией</div>
           </div>
         </div>
       </div>
-    </div>
-    
-    <!-- Safety/Quality Control Section — С УПРОЩЁННЫМИ ОБЪЯСНЕНИЯМИ ДЛЯ ПАЦИЕНТА -->
-    <div class="section">
-      <div class="section-header" onclick="toggleSection('safety')">
-        <h3 class="section-title">
-          <img src="assets/images/icon-safety.png" alt="⚠️" style="width:32px;height:32px;object-fit:contain" onerror="this.src='https://via.placeholder.com/32/ED6C02/ffffff?text=⚠️'">
-          Контроль безопасности
-          <span class="badge warning" id="safetyBadge">85%</span>
-        </h3>
-        <span id="safetyArrow" style="cursor: pointer; font-size: 20px;">▼</span>
-      </div>
-      <div id="safety" style="display: none;">
-        <div class="item">
-          <div class="item-icon">
-            <img src="assets/images/accept-icon.png" alt="✓" onerror="this.src='https://via.placeholder.com/48/4CAF50/ffffff?text=✓'">
-          </div>
-          <div class="item-content">
-            <h4 class="item-title">Мониторинг кардиотоксичности</h4>
-            <!-- Для врача -->
-            <p class="item-desc">ЭхоКГ выполнена перед началом терапии Трастузумабом</p>
-            <!-- Для пациента (упрощённо) -->
-            <p class="item-desc-patient">Перед началом терапии Трастузумабом врач проверил работу сердца (ЭхоКГ), чтобы исключить нагрузку на сердечно-сосудистую систему при терапии</p>
-            <a href="https://russco.ru/clinical-recommendations" target="_blank" class="guideline-link">
-              📚 RUSSCO 2024, п.4.3.1 →
-            </a>
-          </div>
-        </div>
-        <div class="item">
-          <div class="item-icon">
-            <img src="assets/images/icon-safety.png" alt="⚠️" onerror="this.src='https://via.placeholder.com/48/ED6C02/ffffff?text=⚠️'">
-          </div>
-          <div class="item-content">
-            <h4 class="item-title">Контроль лекарственных взаимодействий</h4>
-            <!-- Для врача -->
-            <p class="item-desc">Требуется проверка совместимости с сопутствующей терапией (ГБ, СД)</p>
-            <!-- Для пациента (упрощённо) -->
-            <p class="item-desc-patient">Врачу необходимо исключить конфликт текущих препаратов (которые вы принимаете для лечения сопутсвующих заболеваний) и терапевтических препаратов</p>
-            <a href="https://minzdrav.gov.ru/clinical-recommendations" target="_blank" class="guideline-link">
-              📚 Минздрав РФ, КР 2024, п.5.2.3 →
-            </a>
-          </div>
-        </div>
-      </div>
+
     </div>
     
     <!-- Additional Recommendations Section -->
@@ -1141,17 +1134,18 @@
 
     // --- Structured data rendering ---
 
+    function esc(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
     function populateStructured(s) {
       // Patient summary
-      if (s.patient_info) {
-        const pi = s.patient_info;
-        const el = document.getElementById('patientSummary');
-        if (el) {
-          el.innerHTML =
-            '<strong>📋 Диагноз:</strong> ' + (pi.diagnosis || '—') + ' <br>' +
-            '<strong>Возраст:</strong> ' + (pi.age || '—') + ' <br>' +
-            '<strong>Сопутствующие заболевания:</strong> ' + (pi.comorbidities || '—');
-        }
+      const el = document.getElementById('patientSummary');
+      if (el && (s.diagnosis || s.age || s.comorbidities)) {
+        el.innerHTML =
+          '<strong>📋 Диагноз:</strong> ' + esc(s.diagnosis || '—') + ' <br>' +
+          '<strong>Возраст:</strong> '     + esc(s.age        || '—') + ' <br>' +
+          '<strong>Сопутствующие заболевания:</strong> ' + esc(s.comorbidities || '—');
       }
 
       // Overall score
@@ -1171,62 +1165,45 @@
       }
 
       // Summary stats
-      const allItems = [
-        ...(s.diagnostics || []),
-        ...(s.therapy     || []),
-        ...(s.safety      || []),
-      ];
-      const okCount      = allItems.filter(i => i.status === 'ok').length;
-      const warningCount = allItems.filter(i => i.status === 'warning').length;
-      const errorCount   = allItems.filter(i => i.status === 'error').length;
+      const compliantItems    = s.compliant    || [];
+      const nonCompliantItems = s.non_compliant || [];
       const statOk = document.getElementById('statOk');
       const statW  = document.getElementById('statWarning');
       const statE  = document.getElementById('statError');
-      if (statOk) statOk.textContent = okCount;
-      if (statW)  statW.textContent  = warningCount;
-      if (statE)  statE.textContent  = errorCount;
+      if (statOk) statOk.textContent = compliantItems.length;
+      if (statW)  statW.textContent  = 0;
+      if (statE)  statE.textContent  = nonCompliantItems.length;
 
-      // Sections
-      if (s.diagnostics)    renderSection('diagnostics',    s.diagnostics,    'diagBadge');
-      if (s.therapy)        renderSection('therapy',        s.therapy,        'therapyBadge');
-      if (s.safety)         renderSection('safety',         s.safety,         'safetyBadge');
+      // Compliance lists
+      renderComplianceList('compliantList',    'compliantBadge',    compliantItems,    true);
+      renderComplianceList('nonCompliantList', 'nonCompliantBadge', nonCompliantItems, false);
+
+      // Recommendations
       if (s.recommendations) renderRecommendations(s.recommendations);
     }
 
-    function _statusIcon(status) {
-      if (status === 'ok')    return { src: 'assets/images/accept-icon.png',  alt: '✓', color: '4CAF50' };
-      if (status === 'error') return { src: 'assets/images/decline-icon.png', alt: '✕', color: 'C62828' };
-      return                         { src: 'assets/images/icon-safety.png',  alt: '⚠️', color: 'ED6C02' };
-    }
-
-    function renderSection(sectionId, items, badgeId) {
-      const container = document.getElementById(sectionId);
+    function renderComplianceList(listId, badgeId, items, isCompliant) {
+      const container = document.getElementById(listId);
+      const badge     = document.getElementById(badgeId);
       if (!container) return;
 
-      const okCount = items.filter(i => i.status === 'ok').length;
-      const score   = items.length > 0 ? Math.round(okCount / items.length * 100) : 100;
-      const badge   = document.getElementById(badgeId);
       if (badge) {
-        badge.textContent = score + '%';
-        badge.className   = score >= 80 ? 'badge success' : score >= 60 ? 'badge warning' : 'badge error';
+        badge.textContent = items.length;
+        badge.className   = isCompliant ? 'badge success' : 'badge error';
       }
 
-      container.innerHTML = items.map(item => {
-        const ic = _statusIcon(item.status || 'ok');
-        return (
-          '<div class="item">' +
-          '  <div class="item-icon">' +
-          '    <img src="' + ic.src + '" alt="' + ic.alt + '"' +
-          '         onerror="this.src=\'https://via.placeholder.com/48/' + ic.color + '/ffffff?text=' + ic.alt + '\'">' +
-          '  </div>' +
-          '  <div class="item-content">' +
-          '    <h4 class="item-title">' + item.title + '</h4>' +
-          '    <p class="item-desc">' + item.description + '</p>' +
-          '    <p class="item-desc-patient">' + item.description + '</p>' +
-          '  </div>' +
-          '</div>'
-        );
-      }).join('');
+      if (items.length === 0) {
+        container.innerHTML = '<div class="compliance-empty">Нет данных</div>';
+        return;
+      }
+
+      container.innerHTML = items.map(item =>
+        '<div class="compliance-item">' +
+        '  <div class="compliance-category">' + esc(item.category || '') + '</div>' +
+        '  <div class="compliance-title">'    + esc(item.title    || '') + '</div>' +
+        '  <div class="compliance-text">'     + esc(item.text     || '') + '</div>' +
+        '</div>'
+      ).join('');
     }
 
     function renderRecommendations(items) {
@@ -1236,8 +1213,8 @@
       if (badge) badge.textContent = items.length;
       container.innerHTML = items.map(item =>
         '<div class="recommendation-item">' +
-        '  <div class="recommendation-title">' + item.title + '</div>' +
-        '  <p class="recommendation-desc">' + item.description + '</p>' +
+        '  <div class="recommendation-title">' + esc(item.title || '') + '</div>' +
+        '  <p class="recommendation-desc">'    + esc(item.text  || item.description || '') + '</p>' +
         '</div>'
       ).join('');
     }
