@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 class Config:
     # --- Paths ---
     faiss_index_path: str = "data/faiss_index"
-    guideline_pdf_path: str = "data/clinical_guideline/cg_30_5_lung_cancer.pdf"
+    guideline_path: str = "data/clinical_guideline"
     patient_docx_path: str = "data/input_example/case_example_2.docx"
     response_dir: str = "data/generator_response"
     new_guideline_pdf_path: str = "data/clinical_guideline/new_guideline.pdf"
