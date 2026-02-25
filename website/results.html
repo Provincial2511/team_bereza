@@ -802,9 +802,9 @@
     </div>
     
     <!-- Patient Summary -->
-    <div class="patient-summary">
+    <div class="patient-summary" id="patientSummary">
       <strong>📋 Диагноз:</strong> Рак молочной железы, pT2N1M0, HER2+, LumB <br>
-      <strong>Возраст:</strong> 54 года <br> 
+      <strong>Возраст:</strong> 54 года <br>
       <strong>Сопутствующие заболевания:</strong> ГБ II ст., СД 2
     </div>
     
@@ -823,15 +823,15 @@
       <div class="stats">
         <div class="stat success">
           <img src="assets/images/accept-icon.png" alt="✓" style="width:20px;height:20px;object-fit:contain" onerror="this.src='https://via.placeholder.com/20/4CAF50/ffffff?text=✓'">
-          18 пунктов выполнено
+          <span id="statOk">18</span> пунктов выполнено
         </div>
         <div class="stat warning">
           <img src="assets/images/icon-safety.png" alt="⚠️" style="width:20px;height:20px;object-fit:contain" onerror="this.src='https://via.placeholder.com/20/ED6C02/ffffff?text=⚠️'">
-          5 требуют внимания
+          <span id="statWarning">5</span> требуют внимания
         </div>
         <div class="stat error">
           <img src="assets/images/decline-icon.png" alt="✕" style="width:20px;height:20px;object-fit:contain" onerror="this.src='https://via.placeholder.com/20/C62828/ffffff?text=✕'">
-          2 отклонения
+          <span id="statError">2</span> отклонения
         </div>
       </div>
     </div>
@@ -981,7 +981,7 @@
         <h3 class="section-title">
           <img src="assets/images/icon-safety.png" alt="💡" style="width:32px;height:32px;object-fit:contain" onerror="this.src='https://via.placeholder.com/32/ED6C02/ffffff?text=💡'">
           Дополнительные рекомендации
-          <span class="badge info">3</span>
+          <span class="badge info" id="recBadge">3</span>
         </h3>
         <span id="recArrow" style="cursor: pointer; font-size: 20px;">▼</span>
       </div>
@@ -1139,6 +1139,109 @@
       }
     }
 
+    // --- Structured data rendering ---
+
+    function populateStructured(s) {
+      // Patient summary
+      if (s.patient_info) {
+        const pi = s.patient_info;
+        const el = document.getElementById('patientSummary');
+        if (el) {
+          el.innerHTML =
+            '<strong>📋 Диагноз:</strong> ' + (pi.diagnosis || '—') + ' <br>' +
+            '<strong>Возраст:</strong> ' + (pi.age || '—') + ' <br>' +
+            '<strong>Сопутствующие заболевания:</strong> ' + (pi.comorbidities || '—');
+        }
+      }
+
+      // Overall score
+      if (s.overall_score != null) {
+        const score = Math.min(100, Math.max(0, Math.round(s.overall_score)));
+        const badge = document.getElementById('overallBadge');
+        const prog  = document.getElementById('overallProgress');
+        if (badge) {
+          badge.textContent = score + '%';
+          badge.className   = score >= 80 ? 'badge success' : score >= 60 ? 'badge warning' : 'badge error';
+        }
+        if (prog) {
+          prog.textContent = score + '%';
+          setTimeout(() => { prog.style.width = score + '%'; }, 150);
+          prog.className = 'progress-fill ' + (score >= 80 ? 'progress-success' : 'progress-warning');
+        }
+      }
+
+      // Summary stats
+      const allItems = [
+        ...(s.diagnostics || []),
+        ...(s.therapy     || []),
+        ...(s.safety      || []),
+      ];
+      const okCount      = allItems.filter(i => i.status === 'ok').length;
+      const warningCount = allItems.filter(i => i.status === 'warning').length;
+      const errorCount   = allItems.filter(i => i.status === 'error').length;
+      const statOk = document.getElementById('statOk');
+      const statW  = document.getElementById('statWarning');
+      const statE  = document.getElementById('statError');
+      if (statOk) statOk.textContent = okCount;
+      if (statW)  statW.textContent  = warningCount;
+      if (statE)  statE.textContent  = errorCount;
+
+      // Sections
+      if (s.diagnostics)    renderSection('diagnostics',    s.diagnostics,    'diagBadge');
+      if (s.therapy)        renderSection('therapy',        s.therapy,        'therapyBadge');
+      if (s.safety)         renderSection('safety',         s.safety,         'safetyBadge');
+      if (s.recommendations) renderRecommendations(s.recommendations);
+    }
+
+    function _statusIcon(status) {
+      if (status === 'ok')    return { src: 'assets/images/accept-icon.png',  alt: '✓', color: '4CAF50' };
+      if (status === 'error') return { src: 'assets/images/decline-icon.png', alt: '✕', color: 'C62828' };
+      return                         { src: 'assets/images/icon-safety.png',  alt: '⚠️', color: 'ED6C02' };
+    }
+
+    function renderSection(sectionId, items, badgeId) {
+      const container = document.getElementById(sectionId);
+      if (!container) return;
+
+      const okCount = items.filter(i => i.status === 'ok').length;
+      const score   = items.length > 0 ? Math.round(okCount / items.length * 100) : 100;
+      const badge   = document.getElementById(badgeId);
+      if (badge) {
+        badge.textContent = score + '%';
+        badge.className   = score >= 80 ? 'badge success' : score >= 60 ? 'badge warning' : 'badge error';
+      }
+
+      container.innerHTML = items.map(item => {
+        const ic = _statusIcon(item.status || 'ok');
+        return (
+          '<div class="item">' +
+          '  <div class="item-icon">' +
+          '    <img src="' + ic.src + '" alt="' + ic.alt + '"' +
+          '         onerror="this.src=\'https://via.placeholder.com/48/' + ic.color + '/ffffff?text=' + ic.alt + '\'">' +
+          '  </div>' +
+          '  <div class="item-content">' +
+          '    <h4 class="item-title">' + item.title + '</h4>' +
+          '    <p class="item-desc">' + item.description + '</p>' +
+          '    <p class="item-desc-patient">' + item.description + '</p>' +
+          '  </div>' +
+          '</div>'
+        );
+      }).join('');
+    }
+
+    function renderRecommendations(items) {
+      const container = document.getElementById('recommendations');
+      if (!container) return;
+      const badge = document.getElementById('recBadge');
+      if (badge) badge.textContent = items.length;
+      container.innerHTML = items.map(item =>
+        '<div class="recommendation-item">' +
+        '  <div class="recommendation-title">' + item.title + '</div>' +
+        '  <p class="recommendation-desc">' + item.description + '</p>' +
+        '</div>'
+      ).join('');
+    }
+
     // --- Init ---
     window.addEventListener('DOMContentLoaded', () => {
       const mode      = localStorage.getItem('oncoai_mode') || 'doctor';
@@ -1167,20 +1270,34 @@
         loading.textContent = 'Результаты анализа не найдены. Загрузите файл пациента.';
       }
 
+      // Заполнить структурированные секции из structured JSON
+      const structuredRaw = localStorage.getItem('oncoai_structured');
+      if (structuredRaw) {
+        try {
+          const structured = JSON.parse(structuredRaw);
+          populateStructured(structured);
+        } catch (e) {
+          console.warn('Не удалось разобрать structured JSON:', e);
+          // Статические данные остаются как fallback
+        }
+      }
+
       // Приветственное сообщение в чате
       appendMessage('assistant',
         'Здравствуйте! Я проанализировал данные пациента. ' +
         'Вы можете задать уточняющие вопросы по результатам анализа.'
       );
 
-      // Анимация progress bar (mock-данные)
-      setTimeout(() => {
-        const progress = document.getElementById('overallProgress');
-        if (progress) {
-          progress.style.width = '0%';
-          setTimeout(() => { progress.style.width = '82%'; }, 100);
-        }
-      }, 500);
+      // Анимация progress bar (только если structured не был загружен)
+      if (!structuredRaw) {
+        setTimeout(() => {
+          const progress = document.getElementById('overallProgress');
+          if (progress) {
+            progress.style.width = '0%';
+            setTimeout(() => { progress.style.width = '82%'; }, 100);
+          }
+        }, 500);
+      }
     });
   </script>
 </body>

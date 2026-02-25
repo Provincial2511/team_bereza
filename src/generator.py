@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import json
+import logging
+import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
+
+logger = logging.getLogger(__name__)
 
 
 class LocalGenerator:
@@ -268,6 +273,102 @@ class LocalGenerator:
         new_tokens = output_ids[0][input_length:]
         generated = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
         return self._ensure_disclaimer(generated)
+
+    def generate_structured(
+        self,
+        patient_text: str,
+        main_analysis: str,
+        max_new_tokens: int = 600,
+    ) -> dict | None:
+        """
+        Extract structured sections from patient data and main analysis.
+
+        Makes a second inference pass with a JSON-focused prompt.
+        Returns a parsed dict or None if JSON extraction fails.
+
+        Expected structure::
+
+            {
+              "patient_info": {"diagnosis": "...", "age": "...", "comorbidities": "..."},
+              "overall_score": 75,
+              "diagnostics": [{"title": "...", "description": "...", "status": "ok|warning|error"}],
+              "therapy":      [...],
+              "safety":       [...],
+              "recommendations": [{"title": "...", "description": "..."}]
+            }
+        """
+        system_prompt = (
+            "Ты — экстрактор клинических данных. "
+            "Извлеки информацию из данных пациента и анализа в формат JSON. "
+            "Выведи ТОЛЬКО валидный JSON-объект — без markdown, без пояснений.\n\n"
+            "Требуемая структура:\n"
+            "{\n"
+            '  "patient_info": {"diagnosis": "...", "age": "...", "comorbidities": "..."},\n'
+            '  "overall_score": <целое число 0-100>,\n'
+            '  "diagnostics": [{"title": "...", "description": "...", "status": "ok|warning|error"}],\n'
+            '  "therapy":      [{"title": "...", "description": "...", "status": "ok|warning|error"}],\n'
+            '  "safety":       [{"title": "...", "description": "...", "status": "ok|warning|error"}],\n'
+            '  "recommendations": [{"title": "...", "description": "..."}]\n'
+            "}\n\n"
+            "Правила:\n"
+            "- diagnosis: основной диагноз из данных пациента\n"
+            "- age: возраст пациента, если указан\n"
+            "- comorbidities: сопутствующие заболевания, если указаны\n"
+            "- overall_score: оцени % соответствия лечения рекомендациям (0-100)\n"
+            "- diagnostics: 1-3 ключевых диагностических процедуры\n"
+            "- therapy: 1-3 ключевых этапа лечения с оценкой соответствия\n"
+            "- safety: 1-2 пункта контроля безопасности\n"
+            "- recommendations: 1-3 дополнительных рекомендации\n"
+            "- Весь текст — на русском языке\n"
+            '- status должен быть строго "ok", "warning" или "error"\n'
+        )
+
+        user_message = (
+            f"=== Данные пациента ===\n{patient_text[:2000]}\n\n"
+            f"=== Анализ ===\n{main_analysis[:3000]}"
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ]
+
+        text = self.tokenizer.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        inputs = self.tokenizer(
+            text,
+            return_tensors="pt",
+            truncation=True,
+        ).to(self.device)
+
+        with torch.no_grad():
+            output_ids = self.model.generate(
+                **inputs,
+                max_new_tokens=max_new_tokens,
+                do_sample=False,
+                pad_token_id=self.tokenizer.pad_token_id,
+            )
+
+        input_length = inputs["input_ids"].shape[1]
+        new_tokens = output_ids[0][input_length:]
+        generated = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+
+        # Strip markdown code fences and extract the JSON object.
+        cleaned = re.sub(r"```(?:json)?", "", generated).strip()
+        start = cleaned.find("{")
+        end = cleaned.rfind("}") + 1
+        if start < 0 or end <= start:
+            logger.warning("generate_structured: no JSON object found in output")
+            return None
+        try:
+            return json.loads(cleaned[start:end])
+        except json.JSONDecodeError as exc:
+            logger.warning("generate_structured: JSON parse error: %s", exc)
+            return None
 
     def _ensure_disclaimer(self, text: str) -> str:
         """

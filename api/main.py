@@ -7,11 +7,13 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
 from api.models import AnalyzeResponse, ChatRequest, ChatResponse
 from api.state import app_state
 from main import load_patient_docx
+from src.ocr import extract_text_from_pdf
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,14 +58,25 @@ async def analyze(
         raise HTTPException(status_code=400, detail="mode must be 'doctor' or 'patient'")
 
     # Сохраняем загруженный файл во временный файл
-    suffix = Path(file.filename or "patient.docx").suffix or ".docx"
+    suffix = Path(file.filename or "patient.docx").suffix.lower() or ".docx"
+    if suffix not in (".docx", ".pdf"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Неподдерживаемый формат '{suffix}'. Загрузите DOCX или PDF.",
+        )
+
     tmp_path: str | None = None
     try:
         with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
             tmp.write(await file.read())
             tmp_path = tmp.name
 
-        patient_text = load_patient_docx(tmp_path)
+        if suffix == ".pdf":
+            patient_text = extract_text_from_pdf(
+                tmp_path, languages=app_state.cfg.ocr_languages
+            )
+        else:
+            patient_text = load_patient_docx(tmp_path)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
@@ -89,9 +102,16 @@ async def analyze(
         max_new_tokens=cfg.max_new_tokens,
     )
 
+    structured = app_state.generator.generate_structured(
+        patient_text=patient_text,
+        main_analysis=response,
+    )
+    if structured is None:
+        logger.warning("generate_structured returned None; structured sections will be empty")
+
     session_id = app_state.create_session(patient_text, retrieved_sections, mode)
     logger.info("Analyze complete. session_id=%s mode=%s", session_id, mode)
-    return AnalyzeResponse(session_id=session_id, response=response)
+    return AnalyzeResponse(session_id=session_id, response=response, structured=structured)
 
 
 @app.post("/api/chat", response_model=ChatResponse)
@@ -116,6 +136,12 @@ async def chat(body: ChatRequest) -> ChatResponse:
     session.history.append({"role": "assistant", "content": reply})
 
     return ChatResponse(reply=reply)
+
+
+@app.get("/", include_in_schema=False)
+async def root() -> RedirectResponse:
+    """Redirect root to the landing page."""
+    return RedirectResponse(url="/index2.html")
 
 
 # Раздача статики website/ — должна быть последней, чтобы не перекрыть API
