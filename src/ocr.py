@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Optional
 
@@ -24,6 +25,28 @@ def _get_reader(languages: list[str]) -> easyocr.Reader:
     return _READER_CACHE[key]
 
 
+def get_pdf_title(pdf_path: str) -> str:
+    """
+    Return a human-readable document title for use in citations.
+
+    Priority:
+    1. PDF metadata ``title`` field (set by the document author).
+    2. First non-empty line of page 0 that is long enough to be a real title.
+    3. Empty string (caller should fall back to the filename).
+    """
+    with fitz.open(pdf_path) as doc:
+        meta_title = (doc.metadata or {}).get("title", "").strip()
+        if meta_title and len(meta_title) > 10:
+            return meta_title
+        # Heuristic: first substantive line on page 0 is often the document title.
+        if len(doc) > 0:
+            for line in doc[0].get_text(sort=True).splitlines():
+                line = line.strip()
+                if len(line) > 15 and not line.isdigit():
+                    return line
+    return ""
+
+
 def _has_text_layer(pdf_path: str) -> bool:
     """Return True if the PDF contains a native selectable text layer."""
     with fitz.open(pdf_path) as doc:
@@ -34,11 +57,51 @@ def _has_text_layer(pdf_path: str) -> bool:
 
 
 def _extract_text_native(pdf_path: str) -> str:
-    """Extract text directly from a PDF that has a native text layer."""
-    parts: list[str] = []
+    """
+    Extract text from a digital PDF (native text layer).
+
+    Improvements over bare ``page.get_text()``:
+
+    - ``sort=True``: PyMuPDF reads blocks in correct reading order
+      (top-to-bottom, left-to-right), which handles most 2-column layouts.
+    - ``TEXT_DEHYPHENATE``: re-joins words broken across line endings.
+    - Header / footer removal: lines that appear verbatim on ≥30 % of pages
+      (page numbers, document title in running header, ministry name, etc.)
+      are stripped from every page before chunking.
+    """
+    flags = fitz.TEXT_DEHYPHENATE
+
+    # First pass — collect raw lines from every page.
+    raw_pages: list[list[str]] = []
     with fitz.open(pdf_path) as doc:
         for page in doc:
-            parts.append(page.get_text())
+            lines = [
+                ln.strip()
+                for ln in page.get_text(sort=True, flags=flags).splitlines()
+                if ln.strip()
+            ]
+            raw_pages.append(lines)
+
+    if not raw_pages:
+        return ""
+
+    # Identify repeated lines (headers / footers / page numbers).
+    all_lines: list[str] = [ln for page_lines in raw_pages for ln in page_lines]
+    counts = Counter(all_lines)
+    repeat_threshold = max(3, len(raw_pages) * 0.30)
+    noise_lines: set[str] = {
+        ln
+        for ln, cnt in counts.items()
+        if cnt >= repeat_threshold or ln.isdigit()
+    }
+
+    # Second pass — rebuild page text without noise.
+    parts: list[str] = []
+    for page_lines in raw_pages:
+        clean = [ln for ln in page_lines if ln not in noise_lines]
+        if clean:
+            parts.append("\n".join(clean))
+
     return "\n\n".join(parts)
 
 

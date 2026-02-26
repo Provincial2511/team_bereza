@@ -12,7 +12,7 @@ from src.config import Config
 from src.embeddings import TextEmbedder
 from src.faiss_store import FaissStore
 from src.generator import LocalGenerator
-from src.ocr import extract_text_from_pdf
+from src.ocr import extract_text_from_pdf, get_pdf_title
 from src.parser import GuidelineParserStub
 
 logger = logging.getLogger(__name__)
@@ -127,7 +127,8 @@ class AppState:
                 logger.warning("No chunks produced from '%s'.", pdf_path.name)
                 continue
 
-            meta = [{"source": pdf_path.name} for _ in sections]
+            title = get_pdf_title(str(pdf_path))
+            meta = [{"source": pdf_path.name, "title": title} for _ in sections]
             all_sections.extend(sections)
             all_metadata.extend(meta)
             logger.info("  → %d chunks from '%s'.", len(sections), pdf_path.name)

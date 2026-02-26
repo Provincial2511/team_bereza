@@ -95,18 +95,21 @@ def _build_retrieval_query(patient_text: str, max_chars: int = 400) -> str:
 
 def _format_chunk(result: dict) -> str:
     """
-    Prepend the source PDF name to a retrieved chunk so the LLM can cite it.
+    Prepend a human-readable document label to a retrieved chunk.
 
-    E.g.:
-        [КР: рак яичников, первичный рак брюшины и рак маточных труб]
-        <chunk text>
+    Label priority:
+    1. ``metadata["title"]`` — extracted from PDF metadata at index-build time.
+    2. Cleaned ``metadata["source"]`` filename (underscores → spaces, no .pdf).
+    3. «неизвестно» as a last resort.
+
+    Format: ``[КР: <label>]\\n<chunk text>``
     """
-    raw_source = result.get("metadata", {}).get("source", "")
-    if raw_source:
-        clean = raw_source.removesuffix(".pdf").replace("_", " ").strip()
-        header = f"[КР: {clean}]"
-    else:
-        header = "[КР: неизвестно]"
+    meta = result.get("metadata", {})
+    label = (meta.get("title") or "").strip()
+    if not label:
+        raw_source = meta.get("source", "")
+        label = raw_source.removesuffix(".pdf").replace("_", " ").strip()
+    header = f"[КР: {label}]" if label else "[КР: неизвестно]"
     return f"{header}\n{result['text']}"
 
 
