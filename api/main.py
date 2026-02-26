@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -222,27 +223,48 @@ async def analyze(
 
     retrieved_sections = [_format_chunk(r) for r in filtered]
 
-    # Генерация (синхронные вызовы — блокируют event loop на время инференса,
+    # Генерация (синхронный вызов — блокирует event loop на время инференса,
     # но это безопасно: один запрос за раз, модель не thread-safe)
     logger.info("Starting main generation (device=%s, max_new_tokens=%d)...",
                 cfg.device, cfg.max_new_tokens)
-    response = app_state.generator.generate(
+    raw_response = app_state.generator.generate(
         patient_text=patient_text,
         retrieved_sections=retrieved_sections,
         mode=mode,
         max_new_tokens=cfg.max_new_tokens,
     )
-    logger.info("Main generation done (%d chars). Starting structured extraction...",
-                len(response))
+    logger.info("Main generation done (%d chars).", len(raw_response))
 
-    structured = app_state.generator.generate_structured(
-        patient_text=patient_text,
-        main_analysis=response,
-    )
+    # Parse structured sections from the main response (no second LLM call needed).
+    # The prompt instructs the model to output === СООТВЕТСТВУЕТ === /
+    # === НЕ СООТВЕТСТВУЕТ === / === РЕКОМЕНДАЦИИ === / === АНАЛИЗ === sections.
+    from src.generator import LocalGenerator
+    structured = LocalGenerator.parse_main_response(raw_response)
     if structured is None:
-        logger.warning("generate_structured returned None; structured sections will be empty")
+        logger.warning(
+            "parse_main_response: section markers not found; "
+            "structured sections will be empty."
+        )
     else:
-        logger.info("Structured extraction done.")
+        logger.info(
+            "Parsed structured: %d compliant, %d non_compliant, %d recs, score=%d%%",
+            len(structured["compliant"]),
+            len(structured["non_compliant"]),
+            len(structured["recommendations"]),
+            structured["overall_score"],
+        )
+
+    # Show only the АНАЛИЗ section in the AI response card (hides === markers).
+    analysis_m = re.search(
+        r"===\s*АНАЛИЗ\s*===\s*(.*?)(?:===|\Z)", raw_response, re.DOTALL | re.IGNORECASE
+    )
+    response = analysis_m.group(1).strip() if analysis_m else raw_response
+    # Ensure disclaimer is present in the displayed response.
+    if "Не является медицинской рекомендацией" not in response:
+        response += (
+            "\n\nНе является медицинской рекомендацией! "
+            "Материал создан нейросетью. Используйте в ознакомительных целях."
+        )
 
     # Краткая выжимка из карты пациента — без LLM, всегда надёжно.
     patient_summary = _extract_patient_summary(patient_text)
