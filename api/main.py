@@ -44,6 +44,55 @@ app.add_middleware(
 )
 
 
+# Keywords that typically appear in diagnosis / treatment lines of Russian
+# clinical documents.  Used by _build_retrieval_query to extract a short,
+# semantically focused query string for FAISS retrieval.
+_DIAGNOSIS_KEYWORDS: tuple[str, ...] = (
+    "диагноз", "diagnos",
+    "рак", "лимфома", "саркома", "меланома", "опухоль", "карцинома",
+    "аденокарцинома", "глиобластома", "гепатоцеллюлярн",
+    "стадия", "pT", "pN", "pM", "T1", "T2", "T3", "T4",
+    "N0", "N1", "N2", "N3", "M0", "M1",
+    "EGFR", "KRAS", "HER2", "BRCA", "BRAF", "ALK", "PD-L1", "MSI", "ROS1",
+    "химиотерапия", "таргетн", "иммунотерапия",
+    "операция", "резекция", "мастэктомия", "нефрэктомия",
+    "яичник", "молочной железы", "легкого", "простат", "матк", "толстой",
+    "прямой кишки", "пищевода", "желудк", "поджелудочной",
+)
+
+
+def _build_retrieval_query(patient_text: str, max_chars: int = 400) -> str:
+    """
+    Extract a short, diagnosis-focused query string for FAISS retrieval.
+
+    ``sentence-transformers/all-MiniLM-L6-v2`` is optimised for short texts
+    (~256 tokens ≈ 800–1200 Russian chars).  Embedding the full patient
+    record makes the query vector dominated by the administrative header
+    (patient name, admission date, hospital name), not by the actual
+    diagnosis — this hurts retrieval recall significantly.
+
+    Strategy: scan lines for diagnosis/treatment keywords; join the first
+    matching lines up to *max_chars*.  Fallback: first *max_chars* chars of
+    patient_text if no keyword lines are found.
+    """
+    lines = [ln.strip() for ln in patient_text.splitlines() if ln.strip()]
+    selected: list[str] = []
+    total = 0
+    for line in lines:
+        lower = line.lower()
+        if any(kw.lower() in lower for kw in _DIAGNOSIS_KEYWORDS):
+            if total + len(line) + 1 > max_chars:
+                break
+            selected.append(line)
+            total += len(line) + 1
+        if total >= max_chars:
+            break
+    if selected:
+        return " ".join(selected)
+    # Fallback: use the beginning of the document.
+    return patient_text[:max_chars].strip()
+
+
 def _extract_patient_summary(patient_text: str, max_chars: int = 600) -> str:
     """
     Return the first meaningful block of patient text (up to max_chars).
@@ -109,9 +158,49 @@ async def analyze(
 
     # Эмбеддинг + поиск в FAISS
     cfg = app_state.cfg
-    patient_emb = app_state.embedder.embed_text(patient_text)
+
+    # Build a short, diagnosis-focused query instead of embedding the full
+    # patient record.  all-MiniLM-L6-v2 truncates inputs at ~256 tokens; the
+    # full document would be represented mostly by the administrative header.
+    retrieval_query = _build_retrieval_query(patient_text)
+    logger.info(
+        "Retrieval query (%d chars): %.150s", len(retrieval_query), retrieval_query
+    )
+
+    patient_emb = app_state.embedder.embed_text(retrieval_query)
     results = app_state.store.search(patient_emb[0], top_k=cfg.top_k)
-    retrieved_sections = [r["text"] for r in results]
+
+    # Log retrieved chunks with L2 distances for debugging.
+    for i, r in enumerate(results):
+        logger.info(
+            "Retrieved chunk %d: score=%.4f  text=%.80s",
+            i,
+            r["score"],
+            r["text"].replace("\n", " "),
+        )
+
+    # Filter out chunks whose L2 distance exceeds the threshold (cosine sim too low).
+    # If fewer than 2 chunks survive, fall back to all top_k results to avoid
+    # passing empty context to the LLM.
+    threshold = cfg.retrieval_score_threshold
+    filtered = [r for r in results if r["score"] <= threshold]
+    if len(filtered) < 2:
+        logger.warning(
+            "Only %d/%d chunks below threshold %.2f; using all retrieved chunks.",
+            len(filtered),
+            len(results),
+            threshold,
+        )
+        filtered = results
+    else:
+        logger.info(
+            "Threshold filter (%.2f): kept %d/%d chunks.",
+            threshold,
+            len(filtered),
+            len(results),
+        )
+
+    retrieved_sections = [r["text"] for r in filtered]
 
     # Генерация (синхронные вызовы — блокируют event loop на время инференса,
     # но это безопасно: один запрос за раз, модель не thread-safe)

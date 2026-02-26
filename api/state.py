@@ -12,6 +12,8 @@ from src.config import Config
 from src.embeddings import TextEmbedder
 from src.faiss_store import FaissStore
 from src.generator import LocalGenerator
+from src.ocr import extract_text_from_pdf
+from src.parser import GuidelineParserStub
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +54,15 @@ class AppState:
         logger.info("Loading TextEmbedder...")
         self.embedder = TextEmbedder(model_name=self.cfg.embedder_model)
 
-        logger.info("Loading FAISS index from '%s'...", self.cfg.faiss_index_path)
         index_dir = Path(self.cfg.faiss_index_path)
         if not (index_dir / "index.faiss").exists():
-            raise RuntimeError(
-                f"FAISS index not found at '{self.cfg.faiss_index_path}'. "
-                "Run 'python main.py' first to build the index."
+            logger.warning(
+                "FAISS index not found at '%s' — building automatically from guidelines...",
+                self.cfg.faiss_index_path,
             )
+            self._build_index()
+
+        logger.info("Loading FAISS index from '%s'...", self.cfg.faiss_index_path)
         temp = faiss.read_index(str(index_dir / "index.faiss"))
         self.store = FaissStore(dimension=temp.d)
         self.store.load(self.cfg.faiss_index_path)
@@ -71,6 +75,80 @@ class AppState:
             device=self.cfg.device,
         )
         logger.info("All components ready.")
+
+    def _build_index(self) -> None:
+        """
+        Build the FAISS index from all PDFs in cfg.guideline_path.
+
+        Called automatically by load() when the index is missing.
+        Requires self.embedder to be initialised first.
+        """
+        guideline_dir = Path(self.cfg.guideline_path)
+        if not guideline_dir.exists():
+            raise RuntimeError(
+                f"Guideline directory not found: '{guideline_dir}'. "
+                "Place clinical guideline PDFs there and restart."
+            )
+
+        pdf_files = sorted(guideline_dir.glob("*.pdf"))
+        if not pdf_files:
+            raise RuntimeError(
+                f"No PDF files found in '{guideline_dir}'. "
+                "Add clinical guideline PDFs and restart."
+            )
+
+        logger.info(
+            "Building FAISS index from %d PDFs in '%s'...",
+            len(pdf_files),
+            guideline_dir,
+        )
+
+        parser = GuidelineParserStub(
+            chunk_size=self.cfg.chunk_size,
+            overlap=self.cfg.overlap,
+            model_name=self.cfg.embedder_model,
+        )
+
+        all_sections: list[str] = []
+        all_metadata: list[dict] = []
+
+        for pdf_path in pdf_files:
+            logger.info("OCR: %s", pdf_path.name)
+            try:
+                text = extract_text_from_pdf(
+                    str(pdf_path), languages=self.cfg.ocr_languages
+                )
+            except Exception as exc:
+                logger.warning("Failed to OCR '%s': %s", pdf_path.name, exc)
+                continue
+
+            sections = parser.parse(text)
+            if not sections:
+                logger.warning("No chunks produced from '%s'.", pdf_path.name)
+                continue
+
+            meta = [{"source": pdf_path.name} for _ in sections]
+            all_sections.extend(sections)
+            all_metadata.extend(meta)
+            logger.info("  → %d chunks from '%s'.", len(sections), pdf_path.name)
+
+        if not all_sections:
+            raise RuntimeError(
+                "No guideline sections extracted from any PDF. "
+                "Check OCR languages and PDF quality."
+            )
+
+        logger.info("Embedding %d chunks...", len(all_sections))
+        embeddings = self.embedder.embed_batch(all_sections)
+
+        store = FaissStore(dimension=embeddings.shape[1])
+        store.add(all_sections, embeddings, all_metadata)
+        store.save(self.cfg.faiss_index_path)
+        logger.info(
+            "FAISS index built and saved to '%s' (%d vectors).",
+            self.cfg.faiss_index_path,
+            store.index.ntotal,
+        )
 
     def create_session(
         self,
