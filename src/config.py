@@ -32,7 +32,7 @@ class Config:
     retrieval_score_threshold: float = 1.2
 
     # --- Generation ---
-    max_new_tokens: int = 512
+    max_new_tokens: int = 1500
     device: str = "cpu"
     mode: str = "doctor"  # "doctor" | "patient"
 

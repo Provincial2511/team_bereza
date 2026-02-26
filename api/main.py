@@ -93,6 +93,23 @@ def _build_retrieval_query(patient_text: str, max_chars: int = 400) -> str:
     return patient_text[:max_chars].strip()
 
 
+def _format_chunk(result: dict) -> str:
+    """
+    Prepend the source PDF name to a retrieved chunk so the LLM can cite it.
+
+    E.g.:
+        [КР: рак яичников, первичный рак брюшины и рак маточных труб]
+        <chunk text>
+    """
+    raw_source = result.get("metadata", {}).get("source", "")
+    if raw_source:
+        clean = raw_source.removesuffix(".pdf").replace("_", " ").strip()
+        header = f"[КР: {clean}]"
+    else:
+        header = "[КР: неизвестно]"
+    return f"{header}\n{result['text']}"
+
+
 def _extract_patient_summary(patient_text: str, max_chars: int = 600) -> str:
     """
     Return the first meaningful block of patient text (up to max_chars).
@@ -200,7 +217,7 @@ async def analyze(
             len(results),
         )
 
-    retrieved_sections = [r["text"] for r in filtered]
+    retrieved_sections = [_format_chunk(r) for r in filtered]
 
     # Генерация (синхронные вызовы — блокируют event loop на время инференса,
     # но это безопасно: один запрос за раз, модель не thread-safe)
