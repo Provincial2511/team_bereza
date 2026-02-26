@@ -13,7 +13,7 @@ class Config:
     new_guideline_pdf_path: str = "data/clinical_guideline/new_guideline.pdf"
 
     # --- Models ---
-    embedder_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedder_model: str = "intfloat/multilingual-e5-small"
     generator_model: str = "Qwen/Qwen2-7B-Instruct"
 
     # --- OCR ---
